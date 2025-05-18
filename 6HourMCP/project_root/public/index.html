@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Market Entry Strategist (MVP)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f7f9fc; color: #333; }
+        .container { background-color: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 700px; margin: auto;}
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        input[type="text"], select { width: calc(100% - 20px); padding: 10px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: background-color 0.3s ease; margin-right: 10px; }
+        button:hover { background-color: #0056b3; }
+        #results-container { margin-top: 25px; padding: 20px; background-color: #e9f5ff; border-radius: 8px; border: 1px solid #b3d7ff; }
+        h2 { color: #0056b3; text-align: center; margin-bottom: 25px; }
+        h3 { color: #0069d9; margin-top: 0; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        h4 { color: #0056b3; margin-bottom: 5px; margin-top: 20px;}
+        .insight-category { font-weight: bold; color: #0056b3; margin-top:15px; display: block; } /* Made it display block for clarity */
+        p, ul { line-height: 1.6; margin-bottom: 10px; margin-top: 5px;}
+        ul { padding-left: 20px; }
+        li { margin-bottom: 5px; }
+        .error { color: #d9534f; font-weight: bold; background-color: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb;}
+        .source-info { font-size: 0.8em; color: #777; text-align: right; margin-top:15px; }
+        .debug-output { font-size: 0.75em; color: #6c757d; background-color: #f8f9fa; border: 1px dashed #ced4da; padding: 8px; margin-top: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; max-height: 150px; overflow-y: auto; }
+        .link-relevance { font-size: 0.9em; color: #555; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>AI International Market Entry Strategist (MVP)</h2>
+
+        <label for="industry">Your Startup's Industry:</label>
+        <input type="text" id="industry" name="industry" value="SaaS">
+
+        <label for="country">Target Country for Expansion:</label>
+        <input type="text" id="country" name="country" value="Germany">
+        <!-- Consider a dropdown for countries in mock_data.json for faster demo -->
+        <!--
+        <label for="country-select">Target Country (from Mocks):</label>
+        <select id="country-select" name="country-select">
+            <option value="Germany">Germany</option>
+            <option value="Singapore">Singapore</option>
+            <option value="United States">United States</option>
+            <option value="Brazil">Brazil</option>
+        </select>
+        -->
+
+        <button onclick="getInsights()">Get Strategic Insights</button>
+
+        <div id="results-container" style="display:none;">
+            <h3>Strategic Insights:</h3>
+            <div id="loading" style="display:none;">Loading... Please wait.</div>
+            <div id="error-message" class="error" style="display:none;"></div>
+
+            <h4>Overall Strategic Summary</h4>
+            <p id="strategic-summary"></p>
+
+            <h4>Key Opportunities</h4>
+            <ul id="key-opportunities"></ul>
+
+            <h4>Cultural Considerations</h4>
+            <ul id="cultural-considerations"></ul>
+
+            <h4>Regulatory Landscape</h4>
+            <ul id="regulatory-landscape"></ul>
+
+            <h4>Initial Action Plan (First 90 Days)</h4>
+            <div id="initial-action-plan"></div>
+
+            <h4>Key Resources & Further Searches</h4>
+            <span class="insight-category">Suggested Search Queries:</span>
+            <ul id="suggested-search-queries"></ul>
+            <span class="insight-category">Relevant Agencies/Bodies:</span>
+            <ul id="relevant-agencies-bodies"></ul>
+
+            <h4>Competitive Overview</h4>
+            <span class="insight-category">Potential Competitor Types:</span>
+            <ul id="potential-competitor-types"></ul>
+            <span class="insight-category">Example Players to Research:</span>
+            <ul id="example-players-to-research"></ul>
+
+            <h4>Risk Factors & Success Drivers</h4>
+            <span class="insight-category">Potential Challenges:</span>
+            <ul id="potential-challenges"></ul>
+            <span class="insight-category">Critical Success Factors:</span>
+            <ul id="critical-success-factors"></ul>
+
+            <h4>Further Research & Key Links (from Web Search)</h4>
+            <ul id="further-research-links"></ul>
+
+            <div id="mvp-section" style="display:none;">
+                <h3>Proposed MVP Pitch & Value Proposition:</h3>
+                <p id="mvp-pitch-text"></p>
+                <ul id="value-prop-list"></ul>
+            </div>
+
+            <div id="vibe-code-section" style="display:none;">
+                <h3>Vibe Code App Idea & Launch:</h3>
+                <h4>Concept:</h4>
+                <p id="vibe-app-concept"></p>
+                <h4>Target User:</h4>
+                <p id="vibe-app-user"></p>
+                <h4>Why Vibe Coding?</h4>
+                <p id="vibe-app-justification"></p>
+                <h4>Example AI Prompt:</h4>
+                <p id="vibe-app-ai-prompt" style="white-space: pre-wrap; background-color: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;"></p>
+                <h4>Suggested Marketing Channels (for Prototype):</h4>
+                <ul id="vibe-app-marketing-channels"></ul>
+            </div>
+            
+            <p id="source-info" class="source-info"></p>
+            <div id="debug-raw-response" class="debug-output" style="display:none;">
+                <strong>Raw Claude Response (for Debug):</strong><br>
+                <span id="raw-claude-output-text"></span>
+            </div>
+
+            <button id="get-briefing-button" onclick="getBriefing()" style="display:none; margin-top: 20px; background-color: #28a745;">Generate In-Depth Executive Briefing</button>
+            <div id="briefing-container" style="display:none; margin-top: 20px; padding: 15px; background-color: #fff; border: 1px solid #ddd; border-radius: 5px;">
+                <h4>Executive Market Briefing:</h4>
+                <div id="briefing-loading" style="display:none;">Generating briefing... Please wait.</div>
+                <div id="briefing-error-message" class="error" style="display:none;"></div>
+                <p id="briefing-text" style="white-space: pre-wrap;"></p>
+                <p id="briefing-source-info" class="source-info"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentInsights = null; // To store Stage 1 results for Stage 2 call
+        let currentIndustry = '';
+        let currentCountry = '';
+
+        function displayList(elementId, items, defaultText = 'N/A') {
+            const ul = document.getElementById(elementId);
+            if (!ul) return;
+            ul.innerHTML = ''; // Clear previous items
+            if (items && items.length > 0) {
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    ul.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = defaultText;
+                ul.appendChild(li);
+            }
+        }
+
+        function displayActionPlan(elementId, items, defaultText = 'N/A') {
+            const div = document.getElementById(elementId);
+            if (!div) return;
+            div.innerHTML = ''; // Clear previous items
+            if (items && items.length > 0) {
+                const ul = document.createElement('ul');
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${item.action || 'N/A'}:</strong> ${item.rationale || 'N/A'}`;
+                    ul.appendChild(li);
+                });
+                div.appendChild(ul);
+            } else {
+                const p = document.createElement('p');
+                p.textContent = defaultText;
+                div.appendChild(p);
+            }
+        }
+
+        function displayResearchLinksList(elementId, items, defaultText = 'N/A') {
+            const ul = document.getElementById(elementId);
+            if (!ul) return;
+            ul.innerHTML = '';
+            if (items && items.length > 0) {
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = item.link || '#';
+                    link.textContent = item.title || 'Untitled Link';
+                    link.target = '_blank'; // Open in new tab
+                    li.appendChild(link);
+                    if (item.relevance_note) {
+                        const noteSpan = document.createElement('span');
+                        noteSpan.className = 'link-relevance';
+                        noteSpan.textContent = ` (${item.relevance_note})`;
+                        li.appendChild(noteSpan);
+                    }
+                    ul.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = defaultText;
+                ul.appendChild(li);
+            }
+        }
+
+        async function getInsights() {
+            currentIndustry = document.getElementById('industry').value; // Store industry
+            currentCountry = document.getElementById('country').value; // Store country
+            
+            const resultsContainer = document.getElementById('results-container');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error-message');
+            const sourceInfoP = document.getElementById('source-info');
+            const debugRawResponseDiv = document.getElementById('debug-raw-response');
+            const rawClaudeOutputText = document.getElementById('raw-claude-output-text');
+
+            // Stage 2 elements
+            const getBriefingButton = document.getElementById('get-briefing-button');
+            const briefingContainer = document.getElementById('briefing-container');
+            const briefingLoadingDiv = document.getElementById('briefing-loading');
+            const briefingErrorDiv = document.getElementById('briefing-error-message');
+            const briefingTextP = document.getElementById('briefing-text');
+            const briefingSourceInfoP = document.getElementById('briefing-source-info');
+
+            // New element IDs
+            const strategicSummaryP = document.getElementById('strategic-summary');
+            const mvpSectionDiv = document.getElementById('mvp-section');
+            const mvpPitchP = document.getElementById('mvp-pitch-text');
+            const valuePropUl = document.getElementById('value-prop-list');
+
+            // Vibe Code App Elements
+            const vibeCodeSectionDiv = document.getElementById('vibe-code-section');
+            const vibeAppConceptP = document.getElementById('vibe-app-concept');
+            const vibeAppUserP = document.getElementById('vibe-app-user');
+            const vibeAppJustificationP = document.getElementById('vibe-app-justification');
+            const vibeAppAiPromptP = document.getElementById('vibe-app-ai-prompt');
+            const vibeAppMarketingUl = document.getElementById('vibe-app-marketing-channels');
+
+            // key_opportunities_ul is dynamically handled by displayList
+            // cultural_considerations_ul is dynamically handled by displayList
+            // regulatory_landscape_ul is dynamically handled by displayList
+            // initial_action_plan_div is dynamically handled by displayActionPlan
+            // suggested_search_queries_ul is dynamically handled by displayList
+            // relevant_agencies_bodies_ul is dynamically handled by displayList
+            // potential_competitor_types_ul is dynamically handled by displayList
+            // example_players_to_research_ul is dynamically handled by displayList
+            // potential_challenges_ul is dynamically handled by displayList
+            // critical_success_factors_ul is dynamically handled by displayList
+
+
+            // Clear previous results and errors (including briefing)
+            strategicSummaryP.textContent = '';
+            displayList('key-opportunities', []);
+            displayList('cultural-considerations', []);
+            displayList('regulatory-landscape', []);
+            displayActionPlan('initial-action-plan', []);
+            displayList('suggested-search-queries', []);
+            displayList('relevant-agencies-bodies', []);
+            displayList('potential-competitor-types', []);
+            displayList('example-players-to-research', []);
+            displayList('potential-challenges', []);
+            displayList('critical-success-factors', []);
+            displayResearchLinksList('further-research-links', []); // Clear new section
+            
+            // Clear MVP section
+            if (mvpSectionDiv) mvpSectionDiv.style.display = 'none';
+            if (mvpPitchP) mvpPitchP.textContent = '';
+            if (valuePropUl) valuePropUl.innerHTML = '';
+
+            // Clear Vibe Code App Section
+            if (vibeCodeSectionDiv) vibeCodeSectionDiv.style.display = 'none';
+            if (vibeAppConceptP) vibeAppConceptP.textContent = '';
+            if (vibeAppUserP) vibeAppUserP.textContent = '';
+            if (vibeAppJustificationP) vibeAppJustificationP.textContent = '';
+            if (vibeAppAiPromptP) vibeAppAiPromptP.textContent = '';
+            if (vibeAppMarketingUl) vibeAppMarketingUl.innerHTML = '';
+
+            sourceInfoP.textContent = '';
+            rawClaudeOutputText.textContent = '';
+            errorDiv.style.display = 'none';
+            debugRawResponseDiv.style.display = 'none';
+
+            // Clear and hide briefing section
+            getBriefingButton.style.display = 'none';
+            briefingContainer.style.display = 'none';
+            briefingTextP.textContent = '';
+            briefingErrorDiv.style.display = 'none';
+            briefingSourceInfoP.textContent = '';
+            currentInsights = null; // Reset stored insights
+            
+            resultsContainer.style.display = 'block';
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ industry: currentIndustry, country: currentCountry }),
+                });
+
+                console.log('Raw response from /api/analyze:', response); // DEBUG LINE 1
+                loadingDiv.style.display = 'none';
+                const data = await response.json();
+                console.log('Parsed data from /api/analyze:', data); // DEBUG LINE 2
+
+                if (data.success) {
+                    const insights = data.insights;
+                    currentInsights = insights; // Store insights for briefing call
+                    sourceInfoP.textContent = `Source: ${data.source || 'N/A'}`;
+
+                    if (insights.error_message) { 
+                        strategicSummaryP.textContent = `Error from Claude: ${insights.error_message}`;
+                        if(insights.raw_response) {
+                            rawClaudeOutputText.textContent = insights.raw_response;
+                            debugRawResponseDiv.style.display = 'block';
+                        }
+                        console.log('Checking for insights.error_message:', insights.error_message); // DEBUG LINE
+                        // Show briefing button if Stage 1 was successful (even if some fields are N/A)
+                        if (!insights.error_message) { // Only show if no major error in insights
+                           getBriefingButton.style.display = 'block';
+                        }
+                    } else {
+                        strategicSummaryP.textContent = insights.strategic_summary || 'N/A';
+                        displayList('key-opportunities', insights.key_opportunities);
+                        displayList('cultural-considerations', insights.cultural_considerations);
+                        displayList('regulatory-landscape', insights.regulatory_landscape);
+                        displayActionPlan('initial-action-plan', insights.initial_action_plan);
+                        
+                        if (insights.key_resources_and_searches) {
+                            displayList('suggested-search-queries', insights.key_resources_and_searches.suggested_search_queries);
+                            displayList('relevant-agencies-bodies', insights.key_resources_and_searches.relevant_agencies_bodies);
+                        } else {
+                            displayList('suggested-search-queries', []);
+                            displayList('relevant-agencies-bodies', []);
+                        }
+
+                        if (insights.competitive_overview) {
+                            displayList('potential-competitor-types', insights.competitive_overview.potential_competitor_types);
+                            displayList('example-players-to-research', insights.competitive_overview.example_players_to_research);
+                        } else {
+                            displayList('potential-competitor-types', []);
+                            displayList('example-players-to-research', []);
+                        }
+
+                        if (insights.risk_factors_and_success_drivers) {
+                            displayList('potential-challenges', insights.risk_factors_and_success_drivers.potential_challenges);
+                            displayList('critical-success-factors', insights.risk_factors_and_success_drivers.critical_success_factors);
+                        } else {
+                            displayList('potential-challenges', []);
+                            displayList('critical-success-factors', []);
+                        }
+                        
+                        displayResearchLinksList('further-research-links', insights.further_research_links_from_context);
+
+                        // Populate MVP Pitch and Value Proposition
+                        if (insights.mvp_pitch || (insights.value_proposition_points && insights.value_proposition_points.length > 0)) {
+                            if (mvpSectionDiv) mvpSectionDiv.style.display = 'block';
+                            if (mvpPitchP) mvpPitchP.textContent = insights.mvp_pitch || 'N/A';
+                            
+                            if (valuePropUl) {
+                                valuePropUl.innerHTML = ''; // Clear previous
+                                if (insights.value_proposition_points && insights.value_proposition_points.length > 0) {
+                                    insights.value_proposition_points.forEach(point => {
+                                        const li = document.createElement('li');
+                                        li.textContent = point;
+                                        valuePropUl.appendChild(li);
+                                    });
+                                } else {
+                                    const li = document.createElement('li');
+                                    li.textContent = 'N/A';
+                                    valuePropUl.appendChild(li);
+                                }
+                            }
+                        } else {
+                            if (mvpSectionDiv) mvpSectionDiv.style.display = 'none';
+                        }
+
+                        // Populate Vibe Code App Idea Section
+                        if (insights.vibe_code_app_idea) {
+                            if (vibeCodeSectionDiv) vibeCodeSectionDiv.style.display = 'block';
+                            if (vibeAppConceptP) vibeAppConceptP.textContent = insights.vibe_code_app_idea.concept || 'N/A';
+                            if (vibeAppUserP) vibeAppUserP.textContent = insights.vibe_code_app_idea.target_user_persona || 'N/A';
+                            if (vibeAppJustificationP) vibeAppJustificationP.textContent = insights.vibe_code_app_idea.justification_for_vibe_coding || 'N/A';
+                            if (vibeAppAiPromptP) vibeAppAiPromptP.textContent = insights.vibe_code_app_idea.example_vibe_code_prompt_for_ai || 'N/A';
+                            displayList('vibe-app-marketing-channels', insights.vibe_code_app_marketing_channels);
+                        } else {
+                            if (vibeCodeSectionDiv) vibeCodeSectionDiv.style.display = 'none';
+                        }
+
+                        if (data.rawClaudeResponseForDebug) {
+                            rawClaudeOutputText.textContent = data.rawClaudeResponseForDebug;
+                            debugRawResponseDiv.style.display = 'block';
+                        }
+                    }
+                } else {
+                    errorDiv.textContent = `Error: ${data.error || 'Unknown error from server.'}`;
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `Fetch Error: ${error.message}. Ensure the server is running.`;
+                errorDiv.style.display = 'block';
+                console.error('Error in getInsights():', error);
+            }
+        }
+
+        async function getBriefing() {
+            if (!currentInsights || !currentIndustry || !currentCountry) {
+                alert('Please generate initial insights first.');
+                return;
+            }
+
+            const getBriefingButton = document.getElementById('get-briefing-button');
+            const briefingContainer = document.getElementById('briefing-container');
+            const briefingLoadingDiv = document.getElementById('briefing-loading');
+            const briefingErrorDiv = document.getElementById('briefing-error-message');
+            const briefingTextP = document.getElementById('briefing-text');
+            const briefingSourceInfoP = document.getElementById('briefing-source-info');
+
+            briefingContainer.style.display = 'block';
+            briefingLoadingDiv.style.display = 'block';
+            briefingErrorDiv.style.display = 'none';
+            briefingTextP.textContent = '';
+            briefingSourceInfoP.textContent = '';
+            getBriefingButton.disabled = true; // Disable button during processing
+
+
+            try {
+                const response = await fetch('/api/briefing', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        previous_insights: currentInsights,
+                        industry: currentIndustry,
+                        country: currentCountry
+                    }),
+                });
+
+                briefingLoadingDiv.style.display = 'none';
+                const data = await response.json();
+
+                if (data.success) {
+                    briefingTextP.textContent = data.briefing || 'No briefing content received.';
+                    briefingSourceInfoP.textContent = `Source: ${data.source || 'N/A'}`;
+                } else {
+                    briefingErrorDiv.textContent = `Briefing Error: ${data.error || 'Unknown error from server.'}`;
+                    briefingErrorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                briefingLoadingDiv.style.display = 'none';
+                briefingErrorDiv.textContent = `Fetch Error for Briefing: ${error.message}.`;
+                briefingErrorDiv.style.display = 'block';
+                console.error('Error in getBriefing():', error);
+            } finally {
+                getBriefingButton.disabled = false; // Re-enable button
+            }
+        }
+    </script>
+</body>
+</html> 

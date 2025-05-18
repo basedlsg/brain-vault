@@ -1,0 +1,50 @@
+{
+  "Germany": {
+    "SaaS": {
+      "market_summary": "Germany has a strong SaaS market, valuing data privacy (GDPR). Medium-sized businesses (Mittelstand) are key targets. High internet penetration.",
+      "cultural_tips": "Business culture is formal and values punctuality. Decisions are often data-driven. English proficiency is generally good in business.",
+      "regulatory_overview": "GDPR compliance is critical. Complex tax system. Strong worker protections."
+    },
+    "Hardware": {
+      "market_summary": "Germany has a robust industrial sector and a demand for quality hardware. Focus on engineering and reliability. Strong competition.",
+      "cultural_tips": "Technical expertise is highly respected. Long-term relationships are important. Contracts are detailed and followed strictly.",
+      "regulatory_overview": "CE marking for product safety is mandatory. Environmental regulations (WEEE, RoHS) are stringent. Patent protection is strong."
+    }
+  },
+  "Singapore": {
+    "SaaS": {
+      "market_summary": "Singapore is a major tech hub in Southeast Asia, open to innovative SaaS solutions. Strong government support for tech. Gateway to ASEAN.",
+      "cultural_tips": "Business culture is a mix of Asian and Western influences. Networking (face-to-face) is important. Hierarchical structures common.",
+      "regulatory_overview": "PDPA for data protection. Generally business-friendly regulations. Strong IP protection."
+    },
+    "FinTech": {
+        "market_summary": "Singapore is a leading global FinTech hub with a progressive regulatory sandbox by MAS. Strong demand for digital payment, wealthtech, and regtech solutions.",
+        "cultural_tips": "High trust in digital services. English is the primary business language. Building rapport and understanding local financial behaviors is key.",
+        "regulatory_overview": "Monetary Authority of Singapore (MAS) oversees FinTech. Licensing may be required. Strong AML/CFT regulations."
+    }
+  },
+  "United States": {
+    "SaaS": {
+      "market_summary": "Largest SaaS market globally with high adoption rates. Competitive landscape with sophisticated buyers. Strong venture capital presence.",
+      "cultural_tips": "Direct communication style. Fast-paced decision making. Value innovation and results over relationships initially. Networking is key.",
+      "regulatory_overview": "Data privacy varies by state (e.g., CCPA in California). SaaS contracts typically require specific SLAs and compliance certifications (e.g., SOC 2)."
+    },
+    "AI Solutions": {
+      "market_summary": "The US leads in AI development and adoption across various sectors. Significant investment in AI research and commercialization. Highly competitive talent pool.",
+      "cultural_tips": "Emphasis on disruptive innovation and scalability. 'Fail fast' mentality can be prevalent. Ethical considerations for AI are increasingly important.",
+      "regulatory_overview": "Emerging AI-specific regulations at federal and state levels. Focus on bias, transparency, and security. Intellectual property protection for AI is crucial."
+    }
+  },
+  "Brazil": {
+    "E-commerce": {
+      "market_summary": "Rapidly growing e-commerce market, especially in major urban centers. Mobile-first consumers with increasing purchasing power. Logistics can be a challenge.",
+      "cultural_tips": "Relationship-based business culture. Face-to-face meetings are important though virtual is growing. Portuguese language essential for local operations and customer service.",
+      "regulatory_overview": "Complex tax system (ICMS, IPI, ISS) with different rates by state. Consumer protection laws (Código de Defesa do Consumidor) are strong. Import restrictions and duties can apply to physical goods."
+    },
+    "AgriTech": {
+      "market_summary": "Brazil is a global agricultural powerhouse with increasing adoption of technology. Opportunities in precision farming, supply chain optimization, and sustainability.",
+      "cultural_tips": "Building trust with farmers is crucial. Understand regional agricultural practices. Portuguese is essential. Decisions can be influenced by commodity price cycles.",
+      "regulatory_overview": "Specific regulations for pesticides, land use, and environmental protection. MAPA (Ministry of Agriculture) is the key regulatory body. Financing for AgTech can be complex."
+    }
+  }
+} 
