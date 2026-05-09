@@ -1,0 +1,26 @@
+# OS / editor noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.swp
+*~
+
+# Obsidian — user-local state (workspace layout, recent files, etc.)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# Logs and credentials
+automations/scripts/*.log
+automations/scripts/*.err.log
+automations/**/*.env
+automations/**/.env*
+*.local.json
+
+# Drafts that shouldn't be committed (use prefix `_draft_` for these)
+**/_draft_*
+
+# But keep these
+!.gitkeep

@@ -1,0 +1,93 @@
+{
+  "name": "Brain — Weekly Synthesis Mon 09:00",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 9 * * 1" }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Schedule Mon 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "command": "=cd /Users/carlos/Brain && (echo '=== CLAUDE.md ===' && cat CLAUDE.md ; echo '=== INBOX (all) ===' && find inbox -type f -name '*.md' -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== NOTES (last 7d) ===' && find notes -type f -name '*.md' -mtime -7 -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== IDEAS (all) ===' && find ideas -type f -name '*.md' -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== PROJECTS ===' && find projects -type f -name '*.md' -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== RECENT BRIEFS ===' && find daily-briefs -type f -name '*.md' -mtime -7 -exec echo '--- {} ---' \\; -exec cat {} \\;)"
+      },
+      "id": "read-vault",
+      "name": "Read Full Vault",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-opus-4-7\",\n  \"max_tokens\": 6000,\n  \"system\": \"You are doing a weekly synthesis pass over Carlos's full Brain vault. Be direct. Challenge him. Do not summarize what he already knows. Output ONLY valid markdown — no preamble, no code fences around the whole thing.\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Read my entire vault below. Focus on everything added in the last 7 days, but draw from older material when it bears on the recent stuff. I want four sections:\\n\\n1. EMERGING THESIS — what idea am I building toward without having stated it explicitly yet? What position is forming in my thinking?\\n2. CONTRADICTIONS — what have I saved recently that contradicts something I believed before? Show me both sides from my own notes, with filenames.\\n3. KNOWLEDGE GAPS — based on what I am reading, what am I clearly NOT reading that I should be? What perspective is missing?\\n4. ONE ACTION — given everything in the vault, what is the single highest-leverage thing I could do or think about this week?\\n\\nFormat as:\\n# Weekly synthesis — week of {{ $now.format('yyyy-MM-dd') }}\\n## Emerging thesis\\n## Contradictions\\n## Knowledge gaps\\n## One action\\n\\nVAULT:\\n\\n{{ $json.stdout }}\"\n    }\n  ]\n}"
+      },
+      "id": "claude-call",
+      "name": "Claude — synthesize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst text = (resp.content && resp.content[0] && resp.content[0].text) || '';\nconst now = new Date();\nconst pad = (n) => String(n).padStart(2, '0');\nconst dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;\nconst body = `---\\ntype: weekly-synthesis\\ngenerated_at: ${now.toISOString()}\\ngenerator: claude-via-n8n\\nmodel: claude-opus-4-7\\n---\\n\\n${text}\\n`;\nreturn [{ json: { filename: `synthesis-${dateStr}.md`, body } }];"
+      },
+      "id": "format-synthesis",
+      "name": "Format Synthesis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/Users/carlos/Brain/weekly-syntheses/{{ $json.filename }}",
+        "dataPropertyName": "body",
+        "options": { "encoding": "utf8" }
+      },
+      "id": "write-synthesis",
+      "name": "Write Synthesis",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Mon 09:00": {
+      "main": [[{ "node": "Read Full Vault", "type": "main", "index": 0 }]]
+    },
+    "Read Full Vault": {
+      "main": [[{ "node": "Claude — synthesize", "type": "main", "index": 0 }]]
+    },
+    "Claude — synthesize": {
+      "main": [[{ "node": "Format Synthesis", "type": "main", "index": 0 }]]
+    },
+    "Format Synthesis": {
+      "main": [[{ "node": "Write Synthesis", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "America/New_York" },
+  "active": false,
+  "pinData": {},
+  "versionId": "1",
+  "meta": { "templateCredsSetupCompleted": false }
+}
