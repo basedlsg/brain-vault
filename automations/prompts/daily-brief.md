@@ -14,6 +14,8 @@ Read these in order:
 4. Everything in `ideas/` modified in the last 7 days.
 5. The most recent file in `daily-briefs/` if one exists — so you don't repeat yesterday's connections.
 
+**Do NOT read `archive/`.** That folder is reserved for the weekly synthesis. The daily brief stays focused on current thinking.
+
 Then write a single markdown file to `daily-briefs/brief-YYYY-MM-DD.md` (use today's date, format `2026-05-09`). Structure:
 
 ```markdown

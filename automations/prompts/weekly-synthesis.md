@@ -10,8 +10,9 @@ Read these:
 
 1. `CLAUDE.md`.
 2. Everything in `inbox/`, `notes/`, `ideas/`, `projects/*/` (the full set this time, not just last 7 days).
-3. The previous five entries in `daily-briefs/` to see what threads have been forming.
-4. The previous synthesis in `weekly-syntheses/` if one exists — so you can build on it rather than restart.
+3. **Everything in `archive/`** that bears on the recent material — old journals, past essays, defunct project docs. This is the folder that makes weekly synthesis different from the daily brief. Use the `original_date` frontmatter to anchor when each piece is from. Skip files marked `deprecated: true` unless an active thread directly contradicts them.
+4. The previous five entries in `daily-briefs/` to see what threads have been forming.
+5. The previous synthesis in `weekly-syntheses/` if one exists — so you can build on it rather than restart.
 
 Focus your thinking on the last 7 days but draw from older material when it bears on the recent stuff.
 

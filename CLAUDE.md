@@ -39,15 +39,20 @@ This is Carlos's second brain. You are reading every captured highlight, note, a
 /inbox              — every automated capture lands here first (Readwise, Telegram, Whisper, Airr)
 /notes              — processed long-form notes, articles, podcast clips, research
 /ideas              — my own thinking, observations, voice transcriptions
+/archive            — historical material (old journals, past essays, defunct project docs)
+                      • READ BY: weekly synthesis only
+                      • SKIPPED BY: daily brief (keeps it focused on current thinking)
+                      • Filename starts with original date (e.g. 2022-03-14-on-saudi-edtech.md)
+                      • Frontmatter MUST have `original_date` field
 /projects           — one folder per active project; Claude reads when project context is needed
   ├── life-compiler
   ├── nemo-compliance
   ├── innoxera-ksa
   └── brain-itself
-/daily-briefs       — auto-generated 06:00 weekday briefs, written by Claude via N8N
+/daily-briefs       — auto-generated 06:00 weekday briefs, written by Claude
 /weekly-syntheses   — Monday 15-min sit-down syntheses
 /templates          — markdown templates the automations use
-/automations        — N8N workflow JSON exports + setup guide
+/automations        — N8N workflow JSON exports, prompts, setup guide
 CLAUDE.md           — this file (read first every session)
 ```
 
