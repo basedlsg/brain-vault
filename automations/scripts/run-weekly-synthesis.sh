@@ -133,12 +133,28 @@ VAULT_SLICE=$(
       cat "$idx"
     done
   fi
-  echo "=== ARCHIVE ESSAYS / OLD-PROJECTS / VOICE-TRANSCRIPTS / APPLE-NOTES (recent) ==="
+  echo "=== ARCHIVE ESSAYS / OLD-PROJECTS / VOICE-TRANSCRIPTS ==="
   find "$VAULT/archive/essays" "$VAULT/archive/old-projects" "$VAULT/archive/voice-transcripts" -type f \( -name '*.md' -o -name '*.txt' \) -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
-  # Apple Notes recent slice — filenames only (full content too large)
+  # Apple Notes — content of the 10 most-recent by original_date (filename date prefix).
+  # We deliberately don't dump all 4681 — that would blow context. Synthesis can grep
+  # for specific themes via the inventory below if needed.
   if [[ -d "$VAULT/archive/apple-notes" ]]; then
-    echo "Apple Notes inventory (filenames only, full content available on demand):"
-    find "$VAULT/archive/apple-notes" -type f -name '*.md' -mtime -90 2>/dev/null | head -50
+    APPLE_TOTAL=$(find "$VAULT/archive/apple-notes" -type f -name '*.md' 2>/dev/null | wc -l | xargs)
+    echo "=== APPLE NOTES — $APPLE_TOTAL total in corpus ==="
+    echo "Showing content of the 10 most recent by original_date:"
+    echo
+    APPLE_RECENT=$(find "$VAULT/archive/apple-notes" -type f -name '*.md' 2>/dev/null | sort | tail -10)
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      echo "--- $f ---"
+      head -c 4000 "$f"
+      echo
+    done <<< "$APPLE_RECENT"
+    echo
+    echo "Inventory of 50 next-most-recent (filenames only):"
+    find "$VAULT/archive/apple-notes" -type f -name '*.md' 2>/dev/null | sort | tail -60 | head -50
+    echo
+    echo "(For older notes, grep archive/apple-notes/ by theme. Filenames begin with original-date YYYY-MM-DD.)"
   fi
   echo "=== RECENT BRIEFS ==="
   find "$VAULT/daily-briefs" -type f -name '*.md' -mtime -7 -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
@@ -155,15 +171,22 @@ VAULT_SLICE=$(
 SLICE_SIZE=$(echo "$VAULT_SLICE" | wc -c | xargs)
 echo "Vault slice: $SLICE_SIZE chars" >> "$LOG"
 
-# Same engagement gate as daily-brief, but with a longer lookback (14 days)
-# and a higher threshold (synthesis needs more accumulated material).
+# Engagement gate. Synthesis ENGAGES when there's enough substance to
+# synthesize on, in any of three forms:
+#   - 5+ recent non-seed captures in inbox/notes/ideas (active week)
+#   - 5+ indexed journals in archive/journals/_indexed/ (mined history)
+#   - 100+ apple-notes in archive/apple-notes/ (imported corpus)
 NON_SEED_COUNT=$(find "$VAULT/inbox" "$VAULT/notes" "$VAULT/ideas" -type f -name '*.md' -mtime -14 \
   ! -name 'seed-*' ! -name '*-second-brain-architecture-source.md' ! -name '*-seed-*' 2>/dev/null | wc -l | xargs)
-echo "Non-seed files in 14d window: $NON_SEED_COUNT" >> "$LOG"
-if (( NON_SEED_COUNT < 5 )); then
-  VAULT_STATE="THIN"
-else
+INDEXED_JOURNAL_COUNT=$(find "$VAULT/archive/journals/_indexed" -type f -name '*-index.md' 2>/dev/null | wc -l | xargs)
+APPLE_NOTE_COUNT=$(find "$VAULT/archive/apple-notes" -type f -name '*.md' 2>/dev/null | wc -l | xargs)
+echo "Non-seed files in 14d: $NON_SEED_COUNT" >> "$LOG"
+echo "Indexed journals: $INDEXED_JOURNAL_COUNT" >> "$LOG"
+echo "Apple notes: $APPLE_NOTE_COUNT" >> "$LOG"
+if (( NON_SEED_COUNT >= 5 || INDEXED_JOURNAL_COUNT >= 5 || APPLE_NOTE_COUNT >= 100 )); then
   VAULT_STATE="ENGAGE"
+else
+  VAULT_STATE="THIN"
 fi
 echo "Vault state: $VAULT_STATE" >> "$LOG"
 
