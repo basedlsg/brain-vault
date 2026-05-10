@@ -1,26 +1,28 @@
 #!/bin/zsh
-# brain-capture — drop a quick capture into the vault from anywhere.
+# brain-capture — drop a capture into the vault from anywhere.
 #
 # Usage:
-#   brain-capture "this is a thought"
-#   echo "piped thought" | brain-capture
-#   brain-capture --source desktop "with explicit source label"
-#   brain-capture --tags ai,nemo "tag the capture"
+#   brain-capture "this is a thought"             # quick text → inbox/
+#   echo "piped" | brain-capture                  # stdin → inbox/
+#   brain-capture https://example.com/article     # URL → fetched, summarized → notes/articles/
+#   brain-capture --source desktop "..."
+#   brain-capture --tags ai,nemo "..."
+#   brain-capture --no-summary <url>              # save full text without LLM extraction
 #
-# Writes to /Users/carlos/Brain/OBSIDIAN/inbox/YYYY-MM-DD-HHMMSS-slug.md
-# Designed to be aliased: alias bc='brain-capture' so you can `bc "..."` from anywhere.
+# Aliased to `bc`. URL detection is automatic — anything starting with http:// or https://.
 
 set -euo pipefail
 
 VAULT="/Users/carlos/Brain/OBSIDIAN"
 SOURCE="cli"
 TAGS=""
+NO_SUMMARY=""
 
-# Parse flags
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source) SOURCE="$2"; shift 2 ;;
     --tags) TAGS="$2"; shift 2 ;;
+    --no-summary) NO_SUMMARY="yes"; shift ;;
     --help|-h)
       sed -n '2,12p' "$0"
       exit 0 ;;
@@ -28,37 +30,202 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Get text from args or stdin
 if [[ $# -gt 0 ]]; then
   TEXT="$*"
 elif [[ ! -t 0 ]]; then
   TEXT="$(cat)"
 else
-  echo "ERROR: no text provided. Usage: brain-capture 'thought' OR pipe to stdin." >&2
+  echo "ERROR: no input. Usage: brain-capture 'text' or brain-capture <url>" >&2
   exit 1
 fi
-
-if [[ -z "$TEXT" ]]; then
-  echo "ERROR: empty input." >&2
-  exit 1
-fi
+[[ -z "$TEXT" ]] && { echo "ERROR: empty input" >&2; exit 1; }
 
 DATE=$(date +%Y-%m-%d)
 TIME=$(date +%H%M%S)
 ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Generate slug from first 40 chars of text
+# ============================================================
+# URL handler
+# ============================================================
+if [[ "$TEXT" =~ ^https?://[^[:space:]]+$ ]]; then
+  URL="$TEXT"
+  echo "→ URL detected, fetching..."
+
+  # Fetch with realistic UA, follow redirects, cap at 5MB
+  HTML=$(curl -sSL --max-filesize 5000000 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 brain-capture" "$URL" 2>/dev/null || echo "")
+  if [[ -z "$HTML" ]]; then
+    echo "ERROR: fetch failed for $URL" >&2
+    exit 1
+  fi
+
+  # Extract article content. trafilatura > pandoc > sed-strip.
+  BODY_MD=""
+  if /usr/bin/python3 -c "import trafilatura" 2>/dev/null; then
+    BODY_MD=$(echo "$HTML" | /usr/bin/python3 -c "
+import sys, trafilatura
+html = sys.stdin.read()
+md = trafilatura.extract(html, output_format='markdown', include_links=False, include_tables=True, favor_precision=True)
+print(md or '')
+" 2>/dev/null || echo "")
+  fi
+  PANDOC=$(command -v pandoc || true)
+  if [[ -z "$BODY_MD" && -n "$PANDOC" ]]; then
+    BODY_MD=$(echo "$HTML" | "$PANDOC" -f html -t markdown_strict --wrap=none --reference-links 2>/dev/null || echo "")
+  fi
+  if [[ -z "$BODY_MD" ]]; then
+    BODY_MD=$(echo "$HTML" | sed -E 's/<[^>]+>//g; s/&nbsp;/ /g; s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g' | tr -s ' \n')
+  fi
+
+  # Extract <title>
+  TITLE=$(echo "$HTML" | tr '\n' ' ' | sed -nE 's|.*<title[^>]*>([^<]+)</title>.*|\1|p' | head -c 200)
+  [[ -z "$TITLE" ]] && TITLE=$(basename "$URL" | head -c 80)
+
+  DOMAIN=$(echo "$URL" | sed -E 's|^https?://([^/]+).*|\1|; s/^www\.//')
+  SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | head -c 40)
+  [[ -z "$SLUG" ]] && SLUG="article"
+
+  mkdir -p "$VAULT/notes/articles"
+  DEST="$VAULT/notes/articles/$DATE-$DOMAIN-$SLUG.md"
+
+  TITLE_SAFE=$(echo "$TITLE" | sed 's/"/\\"/g')
+
+  # If --no-summary, skip Llama call and just save the raw markdown body
+  if [[ -n "$NO_SUMMARY" ]]; then
+    cat > "$DEST" <<EOF
+---
+type: article
+source: brain-capture-url
+url: $URL
+domain: $DOMAIN
+title: "$TITLE_SAFE"
+captured_at: $ISO
+processed: false
+${TAGS:+tags: [$(echo "$TAGS" | sed 's/,/, /g')]}
+---
+
+# $TITLE
+
+**Source:** [$DOMAIN]($URL)
+**Captured:** $DATE
+
+## Body (raw conversion)
+
+$BODY_MD
+
+## My take
+
+_(blank — fill if worth keeping)_
+EOF
+    echo "→ $DEST"
+    exit 0
+  fi
+
+  # Llama summarization: title check, key passages, brief summary
+  [[ -f "$HOME/.brain-secrets" ]] && { set -a; source "$HOME/.brain-secrets"; set +a; }
+  if [[ -z "${LLAMA_API_KEY:-}" ]]; then
+    echo "WARN: no LLAMA_API_KEY — saving raw without summary" >&2
+    NO_SUMMARY=yes
+    exec "$0" --no-summary "$URL"
+  fi
+
+  # Cap body for the LLM call (~50KB)
+  BODY_FOR_LLM=$(echo "$BODY_MD" | head -c 50000)
+
+  USER_PROMPT="Article URL: $URL
+Article title: $TITLE
+Article body (truncated to 50KB if longer):
+
+$BODY_FOR_LLM
+
+Output ONLY a markdown body with this exact structure (no preamble, no code fences):
+
+## Why this is in my vault
+
+ONE sentence on what makes this worth re-reading later. If the article is shallow / clickbait / promotional, say so plainly: 'Saved for completeness; not worth re-reading.'
+
+## Key passages
+
+3-7 verbatim quotes (≤50 words each) that carry the actual signal of the article. Use exact quotes only; do not paraphrase. Format each as:
+> 'verbatim quote'
+
+If the article is too thin to extract 3 real passages, output fewer. Don't pad.
+
+## Cross-cuts to my work
+
+If any passage bears on Carlos's projects (Life Compiler / Nemo Compliance / InnoXera KSA / second-brain systems), name the connection in 1-2 sentences. If none, write: 'No direct cross-cut to current work.'
+
+Hard rules:
+- Verbatim quotes only.
+- Be terse.
+- If you cannot identify the article's actual content (paywalled, JS-only, error page), write: 'Could not extract content — page was [paywalled / JS-only / error].' and stop."
+
+  SYSTEM_PROMPT="You are extracting signal from an article Carlos saved. Anti-sycophancy rules from CLAUDE.md apply: don't pad, don't paraphrase, don't restate the article."
+
+  PAYLOAD=$(jq -n --arg sys "$SYSTEM_PROMPT" --arg user "$USER_PROMPT" \
+    '{model: "Llama-4-Maverick-17B-128E-Instruct-FP8",
+      max_completion_tokens: 1500,
+      messages: [{role:"system",content:$sys},{role:"user",content:$user}]}')
+
+  RESPFILE="/tmp/brain-capture-resp-$$.json"
+  curl -sS https://api.llama.com/v1/chat/completions \
+    -H "Authorization: Bearer $LLAMA_API_KEY" \
+    -H "content-type: application/json" \
+    -d "$PAYLOAD" -o "$RESPFILE"
+
+  if jq -e '.error' "$RESPFILE" >/dev/null 2>&1; then
+    echo "WARN: Llama API error, saving without summary" >&2
+    jq '.error' "$RESPFILE" >&2
+    rm -f "$RESPFILE"
+    exec "$0" --no-summary "$URL"
+  fi
+
+  SUMMARY=$(jq -r '.completion_message.content.text // empty' "$RESPFILE")
+  rm -f "$RESPFILE"
+
+  cat > "$DEST" <<EOF
+---
+type: article
+source: brain-capture-url
+url: $URL
+domain: $DOMAIN
+title: "$TITLE_SAFE"
+captured_at: $ISO
+processed: false
+${TAGS:+tags: [$(echo "$TAGS" | sed 's/,/, /g')]}
+---
+
+# $TITLE
+
+**Source:** [$DOMAIN]($URL)
+**Captured:** $DATE
+
+$SUMMARY
+
+---
+
+<details>
+<summary>Full body (raw HTML→markdown conversion, expand if needed)</summary>
+
+$BODY_MD
+
+</details>
+EOF
+
+  echo "→ $DEST"
+  exit 0
+fi
+
+# ============================================================
+# Plain-text quick capture (default)
+# ============================================================
 SLUG=$(echo "$TEXT" | head -c 60 | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | head -c 40)
 [[ -z "$SLUG" ]] && SLUG="capture"
 
 FILENAME="$DATE-$TIME-$SLUG.md"
 DEST="$VAULT/inbox/$FILENAME"
 
-# Format tags as YAML list
 TAG_BLOCK=""
-if [[ -n "$TAGS" ]]; then
-  TAG_BLOCK="tags: [$(echo "$TAGS" | sed 's/,/, /g')]"
-fi
+[[ -n "$TAGS" ]] && TAG_BLOCK="tags: [$(echo "$TAGS" | sed 's/,/, /g')]"
 
 cat > "$DEST" <<EOF
 ---

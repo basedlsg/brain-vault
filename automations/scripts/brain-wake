@@ -1,0 +1,96 @@
+#!/bin/zsh
+# brain-wake — your one-command morning routine.
+#
+# Run this when you sit down at the laptop. It:
+#   1. Triggers a Readwise sync if Obsidian is running
+#   2. Generates today's daily brief if missing (or refreshes if --force)
+#   3. Opens the brief in Obsidian
+#   4. Surfaces fresh inbox items captured since yesterday
+#   5. Reminds you to update CLAUDE.md if it's Monday
+#
+# Aliased to `bw`. Idempotent — safe to run multiple times a day.
+
+set -euo pipefail
+
+VAULT="/Users/carlos/Brain/OBSIDIAN"
+OBSIDIAN_CLI="/usr/local/bin/obsidian"
+DATE=$(date +%Y-%m-%d)
+DOW=$(date +%u)  # 1=Monday, 7=Sunday
+BRIEF="$VAULT/daily-briefs/brief-$DATE.md"
+
+FORCE=""
+[[ "${1:-}" == "--force" ]] && FORCE="yes"
+
+# Pretty divider
+hr() { printf '%.0s─' {1..72}; echo; }
+
+echo
+hr
+echo "  Good $(date +%H | awk '{ if ($1<12) print "morning"; else if ($1<18) print "afternoon"; else print "evening" }'), Carlos. $(date +'%A, %B %d, %Y')."
+hr
+
+# 1. Readwise sync if Obsidian is up
+if pgrep -q Obsidian && [[ -x "$OBSIDIAN_CLI" ]]; then
+  echo "→ Triggering Readwise sync..."
+  "$OBSIDIAN_CLI" command id=readwise-official:readwise-official-sync >/dev/null 2>&1 || true
+  sleep 2
+else
+  echo "→ Obsidian not running. Open it for Readwise sync; skipping."
+fi
+
+# 2. Daily brief
+if [[ -f "$BRIEF" && -z "$FORCE" ]]; then
+  echo "→ Today's brief already exists ($BRIEF). Use 'bw --force' to regenerate."
+else
+  echo "→ Generating today's brief (this calls Llama, ~10s)..."
+  "$VAULT/automations/scripts/run-daily-brief.sh" >/dev/null 2>&1
+  if [[ -f "$BRIEF" ]]; then
+    echo "  ✓ Brief written."
+  else
+    echo "  ✗ Brief generation failed. Check $VAULT/automations/scripts/logs/daily-brief-$DATE.log"
+  fi
+fi
+
+# 3. Open brief in Obsidian
+if pgrep -q Obsidian; then
+  "$OBSIDIAN_CLI" open path="daily-briefs/brief-$DATE.md" >/dev/null 2>&1 || true
+fi
+
+# 4. Show what landed in inbox overnight
+hr
+echo "  Fresh in inbox (last 24h):"
+hr
+INBOX_COUNT=0
+for f in "$VAULT/inbox"/*.md(N.mh-24); do
+  base=$(basename "$f")
+  [[ "$base" == "seed"* || "$base" == *"seed-"* ]] && continue
+  source=$(head -10 "$f" | sed -nE 's/^source:[[:space:]]*(.*)$/\1/p' | head -1)
+  echo "  • $base  ($source)"
+  INBOX_COUNT=$(( INBOX_COUNT + 1 ))
+done
+[[ $INBOX_COUNT -eq 0 ]] && echo "  (nothing new — capture more!)"
+
+# 5. Brief excerpt
+hr
+echo "  Today's brief excerpt:"
+hr
+if [[ -f "$BRIEF" ]]; then
+  # Skip frontmatter, show first ~25 lines of body
+  awk '/^---$/{c++; next} c>=2' "$BRIEF" | head -25
+fi
+
+# 6. Monday reminder
+if [[ "$DOW" == "1" ]]; then
+  hr
+  echo
+  echo "  ⚠️  IT'S MONDAY"
+  echo
+  echo "  Five-minute ritual to keep the briefs sharp:"
+  echo "  1. Edit CLAUDE.md → Current Projects status, Stuck on, Next milestone"
+  echo "  2. Edit CLAUDE.md → 'What I Am Reading and Thinking About'"
+  echo "  3. Read this week's synthesis when it arrives at 09:00"
+  echo
+fi
+
+hr
+echo

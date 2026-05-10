@@ -123,6 +123,16 @@ VAULT_SLICE=$(
   echo "=== ARCHIVE INDEX ==="
   cat "$VAULT/archive/README.md" 2>/dev/null || true
   cat "$VAULT/archive/journals/INDEX.md" 2>/dev/null || true
+  # Read the LLM-extracted journal summaries if they exist (much richer than the
+  # human-curated INDEX.md, with extracted themes, dates, people, distinctive passages)
+  if [[ -d "$VAULT/archive/journals/_indexed" ]]; then
+    echo "=== JOURNAL CORPUS — LLM-extracted indexes (use these as the primary lens into the journals) ==="
+    for idx in "$VAULT/archive/journals/_indexed/"*-index.md; do
+      [[ -f "$idx" ]] || continue
+      echo "--- $idx ---"
+      cat "$idx"
+    done
+  fi
   echo "=== ARCHIVE ESSAYS / OLD-PROJECTS / VOICE-TRANSCRIPTS / APPLE-NOTES (recent) ==="
   find "$VAULT/archive/essays" "$VAULT/archive/old-projects" "$VAULT/archive/voice-transcripts" -type f \( -name '*.md' -o -name '*.txt' \) -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
   # Apple Notes recent slice — filenames only (full content too large)
