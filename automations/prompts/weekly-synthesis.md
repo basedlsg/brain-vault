@@ -10,7 +10,14 @@ Read these:
 
 1. `CLAUDE.md`.
 2. Everything in `inbox/`, `notes/`, `ideas/`, `projects/*/` (the full set this time, not just last 7 days).
-3. **Everything in `archive/`** that bears on the recent material — old journals, past essays, defunct project docs. This is the folder that makes weekly synthesis different from the daily brief. Use the `original_date` frontmatter to anchor when each piece is from. Skip files marked `deprecated: true` unless an active thread directly contradicts them.
+3. **Material in `archive/`** that bears on the recent material — old journals, past essays, defunct project docs. This is the folder that makes weekly synthesis different from the daily brief. Skip files marked `deprecated: true` unless an active thread directly contradicts them.
+
+   **Special handling for `archive/journals/`:** that folder contains very large raw `.txt` files (some 5–7 MB each) of personal prose. Do **not** bulk-read them. Instead:
+   - First read `archive/journals/INDEX.md` to see what's there, what's duplicated, and what the themes are.
+   - Then `grep` for keywords drawn from the active week's themes — pull the file/line hits, and read 200–500 line windows around the matches with `Read` and the `offset`/`limit` parameters.
+   - Quote precisely. Cite the filename (and approximate line range when useful).
+   - Respect the dedup notes — don't double-count near-identical content from `Gem_Train.txt` / `Self_In_Full.txt` / `frdfd.txt`, etc.
+   - Skip `raw_corpus.txt` (it's not a journal — see INDEX).
 4. The previous five entries in `daily-briefs/` to see what threads have been forming.
 5. The previous synthesis in `weekly-syntheses/` if one exists — so you can build on it rather than restart.
 

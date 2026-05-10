@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.carlos.brain.daily-brief</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>/Users/carlos/Brain/automations/scripts/run-daily-brief.sh</string>
+  </array>
+
+  <!-- Fires 06:00 every weekday (Monday=1 through Friday=5 in launchd) -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+
+  <!-- If laptop was asleep at 06:00, run as soon as it wakes -->
+  <key>StartCalendarIntervalRunOnWake</key>
+  <true/>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/carlos/Brain</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/carlos/Brain/automations/scripts/logs/launchd-daily-brief.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/carlos/Brain/automations/scripts/logs/launchd-daily-brief.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

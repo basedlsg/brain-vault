@@ -22,5 +22,9 @@ automations/**/.env*
 # Drafts that shouldn't be committed (use prefix `_draft_` for these)
 **/_draft_*
 
+# Personal journal corpus — too large + private; lives in OBSIDIAN/archive/journals/
+# Only track the index, not the raw content
+archive/journals/*.txt
+
 # But keep these
 !.gitkeep
