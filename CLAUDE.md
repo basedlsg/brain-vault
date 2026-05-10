@@ -25,7 +25,7 @@ This is Carlos's second brain. You are reading every captured highlight, note, a
 | **Life Compiler** | Active build | `/Users/carlos/SEER-DOTH/life-compiler/` | Next.js 16, Prisma 6, Claude Agent SDK. DB seeded with Carlos demo profile. |
 | **Nemo Compliance MVP** | Active | `/Users/carlos/NEMU-TEST-main/` | Perplexity sonar-pro + local registry + evidence grounding. Dev port 3200. |
 | **InnoXera KSA 2026** | Active | `/Users/carlos/INNOxEra_Website/` | EdTech summit landing. DESIGN.md is source of truth. Deadline 2026-04-12. |
-| **Brain Vault (this)** | Active | `/Users/carlos/Brain/` | The compounding layer across all the others. |
+| **Brain Vault (this)** | Active | `/Users/carlos/Brain/OBSIDIAN/` | The compounding layer across all the others. |
 
 **Stuck on / open questions:** _(update this weekly)_
 
@@ -36,10 +36,12 @@ This is Carlos's second brain. You are reading every captured highlight, note, a
 ## How This Vault Works
 
 ```
-/inbox              — every automated capture lands here first (Readwise, Telegram, Whisper, Airr)
+/inbox              — every automated capture lands here first
+                      sources: webhook (iOS Shortcut), brain-capture CLI, Readwise webhook, voice
 /notes              — processed long-form notes, articles, podcast clips, research
-/ideas              — my own thinking, observations, voice transcriptions
-/archive            — historical material (old journals, past essays, defunct project docs)
+                      Readwise plugin syncs into notes/readwise/ on its own schedule
+/ideas              — my own thinking; promoted from inbox during weekly synthesis
+/archive            — historical material (old journals, Apple Notes import, past essays, defunct project docs)
                       • READ BY: weekly synthesis only
                       • SKIPPED BY: daily brief (keeps it focused on current thinking)
                       • Filename starts with original date (e.g. 2022-03-14-on-saudi-edtech.md)
@@ -49,14 +51,26 @@ This is Carlos's second brain. You are reading every captured highlight, note, a
   ├── nemo-compliance
   ├── innoxera-ksa
   └── brain-itself
-/daily-briefs       — auto-generated 06:00 weekday briefs, written by Claude
-/weekly-syntheses   — Monday 15-min sit-down syntheses
-/templates          — markdown templates the automations use
-/automations        — N8N workflow JSON exports, prompts, setup guide
+/daily-briefs       — auto-generated 06:00 weekday briefs, Llama via launchd
+/weekly-syntheses   — Monday 09:00 deeper passes, Llama via launchd
+/templates          — markdown templates capture pipelines use
+/automations        — scripts, launchd plists, prompts, setup guides
+                      • CAPTURE-LAYER.md — how captures flow in
+                      • FINAL-STEP.md — what's still on Carlos's plate
+                      • examples/ — sample outputs the system has produced
 CLAUDE.md           — this file (read first every session)
 ```
 
 **Folder rule:** when in doubt, drop it in `/inbox`. Never create new top-level folders without good reason.
+
+## Capture paths (what flows in automatically)
+
+- **Phone (text or voice)** — iOS Shortcut → `http://laptop:7891/capture` → `inbox/`
+- **Laptop terminal** — `brain-capture "thought"` → `inbox/`
+- **Articles, tweets, Kindle, Pocket** — Readwise → Obsidian plugin → `notes/readwise/`
+- **Podcasts** — Airr → Readwise → same path as articles
+
+When new captures arrive, they sit in `inbox/` until the weekly synthesis or Carlos triages them into `ideas/` or a project folder.
 
 ---
 
@@ -96,3 +110,6 @@ _(update every Monday — current obsessions, active questions, things puzzling 
 - **Never claim something is in the vault without quoting it.** If you can't find a source, say so.
 - **Convert relative dates to absolute** when writing notes (e.g. "Thursday" → `2026-05-14`).
 - **Today's date** is in the system prompt — use it. Don't guess.
+- **No sycophancy.** If the brief or synthesis can't say something real, refuse the section. Padding makes the vault useless.
+- **Cite with vault-relative paths.** Drop the `/Users/carlos/Brain/OBSIDIAN/` prefix. Use `inbox/foo.md` not the absolute path.
+- **Cross-file connections only.** Two quotes from the same file is the same thought continuing — not a connection.

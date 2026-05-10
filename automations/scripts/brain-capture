@@ -1,0 +1,77 @@
+#!/bin/zsh
+# brain-capture — drop a quick capture into the vault from anywhere.
+#
+# Usage:
+#   brain-capture "this is a thought"
+#   echo "piped thought" | brain-capture
+#   brain-capture --source desktop "with explicit source label"
+#   brain-capture --tags ai,nemo "tag the capture"
+#
+# Writes to /Users/carlos/Brain/OBSIDIAN/inbox/YYYY-MM-DD-HHMMSS-slug.md
+# Designed to be aliased: alias bc='brain-capture' so you can `bc "..."` from anywhere.
+
+set -euo pipefail
+
+VAULT="/Users/carlos/Brain/OBSIDIAN"
+SOURCE="cli"
+TAGS=""
+
+# Parse flags
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --source) SOURCE="$2"; shift 2 ;;
+    --tags) TAGS="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '2,12p' "$0"
+      exit 0 ;;
+    *) break ;;
+  esac
+done
+
+# Get text from args or stdin
+if [[ $# -gt 0 ]]; then
+  TEXT="$*"
+elif [[ ! -t 0 ]]; then
+  TEXT="$(cat)"
+else
+  echo "ERROR: no text provided. Usage: brain-capture 'thought' OR pipe to stdin." >&2
+  exit 1
+fi
+
+if [[ -z "$TEXT" ]]; then
+  echo "ERROR: empty input." >&2
+  exit 1
+fi
+
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H%M%S)
+ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Generate slug from first 40 chars of text
+SLUG=$(echo "$TEXT" | head -c 60 | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | head -c 40)
+[[ -z "$SLUG" ]] && SLUG="capture"
+
+FILENAME="$DATE-$TIME-$SLUG.md"
+DEST="$VAULT/inbox/$FILENAME"
+
+# Format tags as YAML list
+TAG_BLOCK=""
+if [[ -n "$TAGS" ]]; then
+  TAG_BLOCK="tags: [$(echo "$TAGS" | sed 's/,/, /g')]"
+fi
+
+cat > "$DEST" <<EOF
+---
+type: quick-capture
+source: $SOURCE
+captured_at: $ISO
+processed: false
+$TAG_BLOCK
+---
+
+# Quick capture — $DATE $TIME
+
+$TEXT
+EOF
+
+echo "→ $DEST"

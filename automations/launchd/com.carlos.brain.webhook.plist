@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.carlos.brain.webhook</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/run-webhook-server.sh</string>
+  </array>
+
+  <!-- Always running. Restart on crash. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/carlos/Brain/OBSIDIAN</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-webhook.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-webhook.err.log</string>
+</dict>
+</plist>
