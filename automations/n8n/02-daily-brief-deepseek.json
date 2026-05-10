@@ -1,0 +1,92 @@
+{
+  "name": "Brain — Daily Brief 06:00 (DeepSeek)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 6 * * 1-5" }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Schedule 06:00 weekdays",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "command": "=cd /Users/carlos/Brain && (echo '=== INBOX (last 24h) ===' && find inbox -type f -name '*.md' -mtime -1 -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== NOTES (last 7d) ===' && find notes -type f -name '*.md' -mtime -7 -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== IDEAS (last 7d) ===' && find ideas -type f -name '*.md' -mtime -7 -exec echo '--- {} ---' \\; -exec cat {} \\; ; echo '=== CLAUDE.md ===' && cat CLAUDE.md)"
+      },
+      "id": "read-vault",
+      "name": "Read Vault Slice",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.DEEPSEEK_API_KEY }}" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"max_tokens\": 4000,\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"You are reading Carlos's Obsidian Brain vault. Output ONLY valid markdown — no preamble, no code fences around the whole thing.\"},\n    {\"role\": \"user\", \"content\": \"Below is a slice of my Brain vault: everything in /inbox from the last 24h, /notes and /ideas from the last 7d, plus my CLAUDE.md. Do three things and write them as a single markdown file:\\n\\n1. CONNECTIONS — the 3 most interesting connections between recent captures and older notes I have probably not noticed. Be specific. Quote the relevant passages with the source filename.\\n2. PATTERN — one pattern across everything I have been reading this week. What is my brain working on even if I have not said it explicitly?\\n3. QUESTION — one question worth sitting with today, drawn from the pattern. Not a task, a question.\\n\\nFormat as:\\n# Daily brief — {{ $now.format('yyyy-MM-dd') }}\\n## Connections\\n## Pattern\\n## Question\\n\\nIf there is too little input to give a real brief, say so plainly under each heading rather than padding.\\n\\nVAULT SLICE:\\n\\n{{ $json.stdout }}\"}\n  ]\n}"
+      },
+      "id": "deepseek-call",
+      "name": "DeepSeek — write brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst text = (resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content) || '';\nconst now = new Date();\nconst pad = (n) => String(n).padStart(2, '0');\nconst dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;\nconst body = `---\\ntype: daily-brief\\ngenerated_at: ${now.toISOString()}\\ngenerator: deepseek-via-n8n\\nmodel: deepseek-chat\\n---\\n\\n${text}\\n`;\nreturn [{ json: { filename: `brief-${dateStr}.md`, body } }];"
+      },
+      "id": "format-brief",
+      "name": "Format Brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/Users/carlos/Brain/daily-briefs/{{ $json.filename }}",
+        "dataPropertyName": "body",
+        "options": { "encoding": "utf8" }
+      },
+      "id": "write-brief",
+      "name": "Write Brief",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Schedule 06:00 weekdays": {
+      "main": [[{ "node": "Read Vault Slice", "type": "main", "index": 0 }]]
+    },
+    "Read Vault Slice": {
+      "main": [[{ "node": "DeepSeek — write brief", "type": "main", "index": 0 }]]
+    },
+    "DeepSeek — write brief": {
+      "main": [[{ "node": "Format Brief", "type": "main", "index": 0 }]]
+    },
+    "Format Brief": {
+      "main": [[{ "node": "Write Brief", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },
+  "active": false,
+  "pinData": {},
+  "versionId": "1",
+  "meta": { "templateCredsSetupCompleted": false }
+}

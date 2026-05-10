@@ -2,6 +2,8 @@
 
 Everything in this vault is already wired. What's left is the handful of external accounts and apps that need your hands. Plan on **45–60 minutes** end to end. You can do it in two sittings if you split installation from configuration.
 
+> **Operating from mainland China?** Read [`CHINA-AND-LLM-OPTIONS.md`](CHINA-AND-LLM-OPTIONS.md) first — it changes the recommended path. The shortest version: skip Anthropic + N8N + Telegram entirely, use Claude Code's `/schedule` skill for the daily brief and an iOS Shortcut for capture. ~20 minutes total, no API keys.
+
 ---
 
 ## 0. Prereqs
