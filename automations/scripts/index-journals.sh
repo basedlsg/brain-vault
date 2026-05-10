@@ -41,7 +41,7 @@ call_llama() {
   local payload
   payload=$(jq -n --arg system "$sys" --arg user "$user" \
     '{model: "Llama-4-Maverick-17B-128E-Instruct-FP8",
-      max_completion_tokens: 2000,
+      max_completion_tokens: 3500,
       messages: [
         {role: "system", content: $system},
         {role: "user", content: $user}
@@ -181,8 +181,9 @@ for f in "${FILES[@]}"; do
       continue
     fi
 
-    # Strip code fences if Llama added them despite instructions
-    chunk_json=$(echo "$chunk_json" | sed -E 's/^```(json)?//; s/```$//')
+    # Strip code fences if Llama added them despite instructions.
+    # Handle ```json on its own line, ``` on its own line, and inline.
+    chunk_json=$(echo "$chunk_json" | sed -E '/^```(json)?[[:space:]]*$/d; /^```[[:space:]]*$/d' | sed -E 's/^```(json)?//; s/```$//')
 
     # Validate it's parseable JSON; if not, skip
     if ! echo "$chunk_json" | jq empty >/dev/null 2>&1; then
