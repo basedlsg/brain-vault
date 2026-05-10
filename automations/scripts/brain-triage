@@ -1,0 +1,201 @@
+#!/bin/zsh
+# brain-triage — Llama-driven inbox triage suggestions.
+#
+# Walks files in inbox/ marked processed:false (or all if --all) and asks
+# Llama where each should live:
+#   - keep in inbox (still incubating)
+#   - move to ideas/ (Carlos's own thinking, persistent)
+#   - move to projects/<which>/ (project-specific reference material)
+#   - move to archive/ (historical, not active)
+#   - delete (clearly junk / test capture)
+#
+# By default this is READ-ONLY — outputs a report. With --apply it executes
+# the moves (delete still requires --apply --confirm-delete).
+#
+# Usage:
+#   brain-triage                  # read-only report
+#   brain-triage --all            # review all inbox files, not just unprocessed
+#   brain-triage --apply          # apply moves (no deletes)
+#   brain-triage --apply --confirm-delete  # also delete junk
+
+set -euo pipefail
+
+VAULT="/Users/carlos/Brain/OBSIDIAN"
+[[ -f "$HOME/.brain-secrets" ]] && { set -a; source "$HOME/.brain-secrets"; set +a; }
+[[ -z "${LLAMA_API_KEY:-}" ]] && { echo "ERROR: LLAMA_API_KEY not set" >&2; exit 1; }
+
+ALL=""
+APPLY=""
+CONFIRM_DELETE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --all) ALL=yes; shift ;;
+    --apply) APPLY=yes; shift ;;
+    --confirm-delete) CONFIRM_DELETE=yes; shift ;;
+    --help|-h) sed -n '2,18p' "$0"; exit 0 ;;
+    *) shift ;;
+  esac
+done
+
+# Collect files
+FILES=()
+for f in "$VAULT/inbox"/*.md; do
+  [[ -f "$f" ]] || continue
+  base=$(basename "$f")
+  [[ "$base" == ".gitkeep" ]] && continue
+  if [[ -z "$ALL" ]]; then
+    # Skip if processed: true
+    if head -10 "$f" 2>/dev/null | grep -q '^processed:[[:space:]]*true'; then
+      continue
+    fi
+  fi
+  FILES+=("$f")
+done
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+  echo "Inbox is clean. Nothing to triage."
+  exit 0
+fi
+
+echo "Reviewing ${#FILES[@]} inbox file(s)..."
+echo
+
+# Get project list for Llama's reference
+PROJECTS=$(ls -d "$VAULT/projects/"*/ 2>/dev/null | xargs -I {} basename {} | tr '\n' ',' | sed 's/,$//')
+
+# Build context: CLAUDE.md provides project priorities
+CLAUDE_CONTEXT=$(head -100 "$VAULT/CLAUDE.md" 2>/dev/null)
+
+REPORT="$VAULT/automations/scripts/logs/triage-$(date +%Y-%m-%d-%H%M%S).log"
+mkdir -p "$VAULT/automations/scripts/logs"
+
+call_llama() {
+  local sys="$1"
+  local user="$2"
+  local payload
+  payload=$(jq -n --arg sys "$sys" --arg user "$user" \
+    '{model:"Llama-4-Maverick-17B-128E-Instruct-FP8",
+      max_completion_tokens:600,
+      messages:[{role:"system",content:$sys},{role:"user",content:$user}]}')
+  local respfile=/tmp/triage-resp-$$.json
+  curl -sS https://api.llama.com/v1/chat/completions \
+    -H "Authorization: Bearer $LLAMA_API_KEY" \
+    -H "content-type: application/json" \
+    -d "$payload" -o "$respfile"
+  if jq -e '.error' "$respfile" >/dev/null 2>&1; then
+    jq -r '.error' "$respfile" >&2
+    rm -f "$respfile"; return 1
+  fi
+  jq -r '.completion_message.content.text // empty' "$respfile"
+  rm -f "$respfile"
+}
+
+SYSTEM_PROMPT="You are triaging items in Carlos's vault inbox. Your job is to suggest where each note should LIVE long-term, not to summarize it.
+
+Output ONLY valid JSON:
+{
+  \"action\": \"keep_inbox|move_ideas|move_project|move_archive|delete\",
+  \"target\": \"<destination, exact path or project name>\",
+  \"reason\": \"<one sentence why>\"
+}
+
+Rules:
+- 'keep_inbox' = still incubating, give it more time before triaging
+- 'move_ideas' = Carlos's own thinking, worth preserving in ideas/
+- 'move_project' = relates to a specific active project (target = life-compiler|nemo-compliance|innoxera-ksa|brain-itself)
+- 'move_archive' = historical material that's not active anymore
+- 'delete' = clearly junk: test captures, mistakes, single-word noise
+
+Be willing to recommend 'delete' for clear test/throwaway content. Don't preserve everything.
+Be willing to recommend 'keep_inbox' for ambiguous content — better to wait than to misfile."
+
+# Init report
+{
+  echo "=== Triage report — $(date) ==="
+  echo "Mode: $([ -n "$APPLY" ] && echo APPLY || echo READ-ONLY)"
+  echo "Files reviewed: ${#FILES[@]}"
+  echo
+} > "$REPORT"
+
+declare -a moved
+declare -a deleted
+declare -a kept
+
+for f in "${FILES[@]}"; do
+  base=$(basename "$f")
+  content=$(head -c 4000 "$f")
+
+  user_prompt="ACTIVE PROJECTS: $PROJECTS
+
+CLAUDE.md context (Carlos's priorities):
+$CLAUDE_CONTEXT
+
+FILE: inbox/$base
+CONTENT (first 4KB):
+$content"
+
+  result=$(call_llama "$SYSTEM_PROMPT" "$user_prompt" 2>/dev/null || echo "")
+  result=$(echo "$result" | sed -E 's/^```(json)?//; s/```$//')
+
+  if ! echo "$result" | jq empty >/dev/null 2>&1; then
+    echo "[skip] $base — Llama response unparseable"
+    echo "[skip] $base — Llama response unparseable" >> "$REPORT"
+    continue
+  fi
+
+  action=$(echo "$result" | jq -r '.action // "keep_inbox"')
+  target=$(echo "$result" | jq -r '.target // ""')
+  reason=$(echo "$result" | jq -r '.reason // ""')
+
+  printf "→ %-50s  %-15s  %s\n" "$base" "$action" "$reason"
+  printf "→ %s\n   action=%s target=%s\n   reason=%s\n\n" "$base" "$action" "$target" "$reason" >> "$REPORT"
+
+  # Apply if requested
+  if [[ -n "$APPLY" ]]; then
+    case "$action" in
+      keep_inbox)
+        kept+=("$base")
+        ;;
+      move_ideas)
+        mkdir -p "$VAULT/ideas"
+        mv "$f" "$VAULT/ideas/$base"
+        moved+=("$base → ideas/")
+        ;;
+      move_project)
+        proj=$(echo "$target" | sed 's|projects/||; s|/||')
+        if [[ -d "$VAULT/projects/$proj" ]]; then
+          mkdir -p "$VAULT/projects/$proj/captures"
+          mv "$f" "$VAULT/projects/$proj/captures/$base"
+          moved+=("$base → projects/$proj/captures/")
+        else
+          echo "  ! unknown project '$proj' — leaving in inbox"
+        fi
+        ;;
+      move_archive)
+        mkdir -p "$VAULT/archive/inbox-archived"
+        mv "$f" "$VAULT/archive/inbox-archived/$base"
+        moved+=("$base → archive/inbox-archived/")
+        ;;
+      delete)
+        if [[ -n "$CONFIRM_DELETE" ]]; then
+          rm "$f"
+          deleted+=("$base")
+        else
+          echo "  ! 'delete' suggested but --confirm-delete not set; leaving in inbox"
+        fi
+        ;;
+    esac
+  fi
+done
+
+echo
+echo "=== Summary ==="
+echo "Suggestions written to: $REPORT"
+if [[ -n "$APPLY" ]]; then
+  echo "Applied:"
+  echo "  moved: ${#moved[@]}"
+  echo "  deleted: ${#deleted[@]}"
+  echo "  kept in inbox: ${#kept[@]}"
+fi
+echo
+echo "Re-run with --apply to execute the moves above (deletes also need --confirm-delete)."
