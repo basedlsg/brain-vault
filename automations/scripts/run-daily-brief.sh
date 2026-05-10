@@ -19,6 +19,12 @@ OUT="$VAULT/daily-briefs/brief-$DATE.md"
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
+# Portable timeout (macOS lacks GNU `timeout`; perl is always present).
+_timeout() {
+  local seconds="$1"; shift
+  perl -e '$SIG{ALRM}=sub{exit 124};alarm shift;exec {$ARGV[0]} @ARGV' "$seconds" "$@"
+}
+
 # Load secrets if present
 if [[ -f "$HOME/.brain-secrets" ]]; then
   set -a
@@ -73,6 +79,41 @@ esac
   echo "Provider: $LLM ($MODEL)"
 } > "$LOG"
 
+# If Obsidian is running, trigger a Readwise sync first so the brief sees
+# any new highlights from Carlos's reading. Best effort — fail silent.
+OBSIDIAN_CLI="/usr/local/bin/obsidian"
+OBSIDIAN_AVAILABLE="no"
+if [[ -x "$OBSIDIAN_CLI" ]] && pgrep -q "Obsidian" && _timeout 3 "$OBSIDIAN_CLI" files total >/dev/null 2>&1; then
+  OBSIDIAN_AVAILABLE="yes"
+  echo "Obsidian-cli: available — triggering Readwise sync first" >> "$LOG"
+  _timeout 5 "$OBSIDIAN_CLI" command id=readwise-official:readwise-official-sync >/dev/null 2>&1 || true
+  # Give Readwise a moment to write any new highlights
+  sleep 3
+else
+  echo "Obsidian-cli: unavailable (Obsidian not running or CLI broken) — skipping Readwise sync, using filesystem only" >> "$LOG"
+fi
+
+# Optionally enrich the slice with obsidian-cli queries when available
+OBSIDIAN_CONTEXT=""
+if [[ "$OBSIDIAN_AVAILABLE" == "yes" ]]; then
+  OBSIDIAN_CONTEXT=$(
+    echo "=== OBSIDIAN-MANAGED CONTEXT (live, from running vault) ==="
+    echo
+    echo "Open tasks across the vault (from Obsidian's task index):"
+    _timeout 5 "$OBSIDIAN_CLI" tasks todo verbose 2>/dev/null | head -30 || true
+    echo
+    echo "Active tags (with counts):"
+    _timeout 5 "$OBSIDIAN_CLI" tags counts sort=count 2>/dev/null | head -20 || true
+    echo
+    echo "Recent files (Obsidian's recents list):"
+    _timeout 5 "$OBSIDIAN_CLI" recents 2>/dev/null | head -10 || true
+    echo
+    echo "Orphans in active vault (skip archive/ and journals/):"
+    _timeout 5 "$OBSIDIAN_CLI" orphans 2>/dev/null | grep -v "^archive/" | head -10 || true
+    echo
+  )
+fi
+
 VAULT_SLICE=$(
   echo "=== CLAUDE.md ==="
   cat "$VAULT/CLAUDE.md" 2>/dev/null || true
@@ -87,6 +128,8 @@ VAULT_SLICE=$(
   find "$VAULT/projects" -type f -name '*.md' -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
   echo "=== RECENT BRIEFS ==="
   find "$VAULT/daily-briefs" -type f -name '*.md' -mtime -3 -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
+  echo
+  echo "$OBSIDIAN_CONTEXT"
 )
 
 SLICE_SIZE=$(echo "$VAULT_SLICE" | wc -c | xargs)

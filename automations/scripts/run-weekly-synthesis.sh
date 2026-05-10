@@ -19,6 +19,12 @@ OUT="$VAULT/weekly-syntheses/synthesis-$DATE.md"
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
+# Portable timeout (macOS lacks GNU `timeout`; perl is always present).
+_timeout() {
+  local seconds="$1"; shift
+  perl -e '$SIG{ALRM}=sub{exit 124};alarm shift;exec {$ARGV[0]} @ARGV' "$seconds" "$@"
+}
+
 if [[ -f "$HOME/.brain-secrets" ]]; then
   set -a
   source "$HOME/.brain-secrets"
@@ -70,6 +76,38 @@ esac
   echo "Provider: $LLM ($MODEL)"
 } > "$LOG"
 
+# Trigger Readwise sync if Obsidian is running so synthesis sees the latest highlights
+OBSIDIAN_CLI="/usr/local/bin/obsidian"
+OBSIDIAN_AVAILABLE="no"
+if [[ -x "$OBSIDIAN_CLI" ]] && pgrep -q "Obsidian" && _timeout 3 "$OBSIDIAN_CLI" files total >/dev/null 2>&1; then
+  OBSIDIAN_AVAILABLE="yes"
+  echo "Obsidian-cli: available — triggering Readwise sync first" >> "$LOG"
+  _timeout 5 "$OBSIDIAN_CLI" command id=readwise-official:readwise-official-sync >/dev/null 2>&1 || true
+  sleep 5
+else
+  echo "Obsidian-cli: unavailable — using filesystem only" >> "$LOG"
+fi
+
+OBSIDIAN_CONTEXT=""
+if [[ "$OBSIDIAN_AVAILABLE" == "yes" ]]; then
+  OBSIDIAN_CONTEXT=$(
+    echo "=== OBSIDIAN-MANAGED CONTEXT (live, from running vault) ==="
+    echo
+    echo "All open tasks (from Obsidian's task index across the whole vault):"
+    _timeout 8 "$OBSIDIAN_CLI" tasks todo verbose 2>/dev/null | head -60 || true
+    echo
+    echo "Active tags with counts (sorted by usage):"
+    _timeout 5 "$OBSIDIAN_CLI" tags counts sort=count 2>/dev/null | head -30 || true
+    echo
+    echo "Most-used frontmatter properties (signals what kinds of capture are flowing):"
+    _timeout 5 "$OBSIDIAN_CLI" properties counts sort=count 2>/dev/null | head -20 || true
+    echo
+    echo "Orphans in active vault (notes nothing else links to — candidates for triage):"
+    _timeout 5 "$OBSIDIAN_CLI" orphans 2>/dev/null | grep -v "^archive/" | head -20 || true
+    echo
+  )
+fi
+
 VAULT_SLICE=$(
   echo "=== CLAUDE.md ==="
   cat "$VAULT/CLAUDE.md" 2>/dev/null || true
@@ -85,8 +123,13 @@ VAULT_SLICE=$(
   echo "=== ARCHIVE INDEX ==="
   cat "$VAULT/archive/README.md" 2>/dev/null || true
   cat "$VAULT/archive/journals/INDEX.md" 2>/dev/null || true
-  echo "=== ARCHIVE ESSAYS / OLD-PROJECTS / VOICE-TRANSCRIPTS ==="
+  echo "=== ARCHIVE ESSAYS / OLD-PROJECTS / VOICE-TRANSCRIPTS / APPLE-NOTES (recent) ==="
   find "$VAULT/archive/essays" "$VAULT/archive/old-projects" "$VAULT/archive/voice-transcripts" -type f \( -name '*.md' -o -name '*.txt' \) -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
+  # Apple Notes recent slice — filenames only (full content too large)
+  if [[ -d "$VAULT/archive/apple-notes" ]]; then
+    echo "Apple Notes inventory (filenames only, full content available on demand):"
+    find "$VAULT/archive/apple-notes" -type f -name '*.md' -mtime -90 2>/dev/null | head -50
+  fi
   echo "=== RECENT BRIEFS ==="
   find "$VAULT/daily-briefs" -type f -name '*.md' -mtime -7 -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null
   echo "=== PREVIOUS SYNTHESIS ==="
@@ -95,6 +138,8 @@ VAULT_SLICE=$(
     echo "--- $prev_syn ---"
     cat "$prev_syn"
   fi
+  echo
+  echo "$OBSIDIAN_CONTEXT"
 )
 
 SLICE_SIZE=$(echo "$VAULT_SLICE" | wc -c | xargs)
