@@ -1,113 +1,121 @@
-# What's live, what's not
+# Where things stand
 
-## ✅ Live and verified end-to-end
-
-| Piece | Status | How to test |
-|---|---|---|
-| Vault structure | live | open `/Users/carlos/Brain/OBSIDIAN/` in Obsidian |
-| Daily brief (06:00 weekdays) | launchd loaded, Llama tested | `automations/scripts/run-daily-brief.sh` |
-| Weekly synthesis (Mon 09:00) | launchd loaded, Llama tested | `automations/scripts/run-weekly-synthesis.sh` |
-| LLM prompts (anti-sycophancy, refuse-when-thin) | tested, cross-file quote rule enforced | see `automations/examples/` |
-| `brain-capture` CLI | live | `brain-capture "any text"` |
-| Webhook server (`http://localhost:7891`) | launchd KeepAlive, auth working | `curl http://localhost:7891/health` |
-| Apple Notes one-shot import | script ready, awaiting your run | `automations/scripts/import-apple-notes.sh` |
-| Journal corpus | imported, indexed, dedup-flagged | `archive/journals/INDEX.md` |
-
-## ⏳ Three things left that only you can do
-
-### 1. Build the iOS Shortcut (5 min, on your phone)
-
-Replaces the Telegram bot. One-tap from your home screen → dictate → lands in `inbox/`.
-
-The exact action sequence is in `automations/CAPTURE-LAYER.md` § "iOS Shortcut". You'll need:
-
-- **Webhook URL:** `http://192.168.110.137:7891/capture` (your laptop's LAN IP — only works on home Wi-Fi unless you set up Tailscale)
-- **Bearer token:** in `~/.brain-secrets` under `BRAIN_WEBHOOK_TOKEN`. Run `grep BRAIN_WEBHOOK_TOKEN ~/.brain-secrets` to see it.
-
-### 2. Install Readwise plugin in Obsidian (5 min)
-
-Settings → Community Plugins → Browse → "Readwise Official" → Install → Enable → Connect to Readwise → Library: `notes/readwise`.
-
-This pulls articles, tweets, Kindle, Pocket, Instapaper highlights into the vault automatically.
-
-### 3. Run the Apple Notes one-shot import (1 command)
+## Commands you have now
 
 ```bash
-/Users/carlos/Brain/OBSIDIAN/automations/scripts/import-apple-notes.sh
+bw                              # morning routine: sync Readwise, generate brief, open it
+bc "any thought"                # quick capture → inbox/
+bc https://example.com/article  # URL capture: fetch, extract via trafilatura, summarize via Llama → notes/articles/
+bc --tags ai,nemo "..."         # tag the capture
+bt                              # triage inbox (read-only suggestions)
+bt --apply                      # execute the suggested moves (deletes need --confirm-delete)
+brain-capture                   # full name of bc (same thing)
+brain-wake                      # full name of bw
+brain-triage                    # full name of bt
 ```
 
-First run may show a permission prompt — grant Terminal access to Notes.app. Output lands in `archive/apple-notes/` with original creation dates preserved in frontmatter.
+All four are in `~/bin/` which is already on your PATH.
 
-## Optional next steps (none urgent)
-
-- **Tailscale** — install on laptop + phone, both join your tailnet, change Shortcut URL to your tailnet hostname. Now the iOS Shortcut works from anywhere, not just home Wi-Fi. ~15 min.
-- **Airr** for podcast clips → connects to Readwise → same path as articles.
-- **Browser history weekly dump** — `automations/scripts/import-chrome-history.sh` exists if you want it. Skip if it feels noisy.
-
-## How the system handles the early-stage thin vault
-
-Both the daily brief and weekly synthesis check the vault for real captured material (files with a `source:` frontmatter from a real pipeline like readwise/whisper/webhook, dated within the brief's lookback window).
-
-- **Vault state THIN** (< 3 non-setup files in 7 days for daily, < 5 in 14 days for synthesis): the brief refuses with a specific count and explanation. No padding, no fake connections.
-- **Vault state ENGAGE**: full output with hard quality bars — cross-file quotes only, no paraphrase passing as pattern, banned LLM-default phrasings, refusal sub-sections when a section has nothing real.
-
-You can see both states demonstrated in `automations/examples/`:
-- `example-daily-brief-with-real-material.md` — what an engaged brief looks like
-- `example-weekly-synthesis-with-real-material.md` — what an engaged synthesis looks like
-- The current real `daily-briefs/brief-*.md` and `weekly-syntheses/synthesis-*.md` show graceful refusal with the actual thin vault.
-
-## Quick reference
+## Live automations
 
 ```bash
-# Test the daily brief / synthesis on demand
-/Users/carlos/Brain/OBSIDIAN/automations/scripts/run-daily-brief.sh
-/Users/carlos/Brain/OBSIDIAN/automations/scripts/run-weekly-synthesis.sh
+$ launchctl list | grep brain
+<pid>  0  com.carlos.brain.webhook            (always running, http://localhost:7891)
+-      0  com.carlos.brain.daily-brief        (06:00 weekdays)
+-      0  com.carlos.brain.weekly-synthesis   (Mondays 09:00)
+```
 
-# Capture from the laptop terminal
-brain-capture "thought goes here"
-echo "piped" | brain-capture --tags ai,nemo
+The brief and synthesis scripts:
+- Trigger Readwise sync first (if Obsidian is running)
+- Pull live tasks/tags/properties/orphans from obsidian-cli into the prompt context
+- Use a deterministic shell-side gate to decide ENGAGE vs THIN — no LLM judgment about whether to refuse
+- Fall back to filesystem-only when Obsidian isn't running
 
-# Capture from anywhere on LAN
-TOKEN=$(grep BRAIN_WEBHOOK_TOKEN ~/.brain-secrets | cut -d'=' -f2 | tr -d '"')
-curl -X POST http://192.168.110.137:7891/capture \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"text":"a thought","source":"manual"}'
+## Capture paths (any of these put data in your vault)
 
-# Check what's running
+| Source | Command / Path | Status |
+|---|---|---|
+| Laptop terminal | `bc "thought"` or `bc <url>` | ✅ live |
+| LAN webhook | `POST http://192.168.110.137:7891/capture` | ✅ live |
+| Phone (text/voice) | iOS Shortcut → webhook | ⏳ build the Shortcut once (see automations/CAPTURE-LAYER.md) |
+| Articles, tweets, Kindle, Pocket | Readwise → Obsidian plugin → `notes/readwise/` | ⏳ log into the plugin once |
+| Apple Notes (4,682 of them) | Obsidian Importer plugin (modal already opened) | ⏳ click through |
+
+## What got built in the last pass
+
+1. **Journal indexer** (`index-journals.sh`)
+   Llama walks each .txt in archive/journals/, extracts themes (with verbatim quotes), in-text dates, people, places, projects, distinctive passages. Output: `archive/journals/_indexed/<stem>-index.md`. Synthesis reads these instead of trying to read 35MB of raw journals.
+
+   Currently running in background. Took ~12 min for the first 2MB file. Total run time ~2 hours for 12 files. The result for `Claude-astro-later.txt` extracted **30+ project ideas** (most forgotten — Astro-Quantum Nexus, ChronOS, Cosmic Compass, Llama 4 Hackathon, etc.) and **50+ places** (Seattle, Beijing, Hangzhou, Stone Mountain, Murcia…). Re-running with `--force` refreshes.
+
+2. **URL capture** in `bc`
+   `bc <url>` → trafilatura extracts clean article text → Llama produces "why this is in my vault" + 3-7 verbatim key passages + cross-cuts to your active projects. Tested on Wikipedia, works.
+
+3. **brain-wake** morning routine
+   One command at the start of your day: Readwise sync, brief generation, brief opens in Obsidian, fresh inbox surfaced, Monday CLAUDE.md reminder.
+
+4. **brain-triage** for inbox cleanup
+   Read-only by default. Suggests where each unprocessed inbox item should live (ideas / project / archive / keep / delete). `--apply` executes; `--confirm-delete` is required to actually delete.
+
+5. **Vault Pulse dashboard**
+   Top-level `Vault Pulse.md` — Dataview queries that render live in Obsidian: captures-by-source, tag cloud, open tasks, inbox-awaiting-triage, orphans, project status. Already opened in your Obsidian window.
+
+## What's still on you (5-10 minutes total)
+
+1. **Click through the Obsidian Importer modal** (or run `obsidian command id=obsidian-importer:open-modal` to re-open). Pick Apple Notes, output folder = `archive/apple-notes`. The plugin uses Apple's native APIs.
+
+2. **Log into Readwise** in Obsidian Settings → Readwise Official → Connect. After that it auto-syncs hourly, and `bw` triggers an extra sync every morning.
+
+3. **Build the iOS Shortcut** for phone capture. Recipe in `automations/CAPTURE-LAYER.md`. Webhook URL: `http://192.168.110.137:7891/capture`. Bearer token in `~/.brain-secrets`.
+
+## Maintenance ritual (5 min/Monday)
+
+`bw` will remind you on Mondays. Edit `CLAUDE.md`:
+- Current Projects: status, Stuck on, Next milestone
+- "What I Am Reading and Thinking About"
+
+This is the single thing that keeps briefs sharp.
+
+## Quick reference for everything
+
+```bash
+# Run brief now
+~/Brain/OBSIDIAN/automations/scripts/run-daily-brief.sh
+
+# Run synthesis now
+~/Brain/OBSIDIAN/automations/scripts/run-weekly-synthesis.sh
+
+# Re-run journal indexer (with --force to refresh existing indexes)
+~/Brain/OBSIDIAN/automations/scripts/index-journals.sh
+~/Brain/OBSIDIAN/automations/scripts/index-journals.sh --force
+
+# Triage inbox (read-only)
+bt
+
+# Triage and apply
+bt --apply
+
+# Apple Notes import: pick a mode
+~/Brain/OBSIDIAN/automations/scripts/import-apple-notes.sh --mode=count
+~/Brain/OBSIDIAN/automations/scripts/import-apple-notes.sh --mode=plugin
+~/Brain/OBSIDIAN/automations/scripts/import-apple-notes.sh --mode=sqlite  # needs Terminal Full Disk Access
+
+# Tail logs
+tail -f ~/Brain/OBSIDIAN/automations/scripts/logs/journal-index.log
+tail -f ~/Brain/OBSIDIAN/automations/scripts/logs/webhook.log
+tail -f ~/Brain/OBSIDIAN/automations/scripts/logs/daily-brief-$(date +%Y-%m-%d).log
+
+# Status of everything
 launchctl list | grep brain
-# expected:
-#   <pid>  0  com.carlos.brain.webhook            (always running)
-#   -      0  com.carlos.brain.daily-brief        (fires 06:00 weekdays)
-#   -      0  com.carlos.brain.weekly-synthesis   (fires Mon 09:00)
-
-# Tail the webhook log
-tail -f /Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/webhook.log
+ls ~/bin/b*
 ```
 
-## Switching the LLM
+## Switching the LLM provider
 
-The wrapper supports four providers via `~/.brain-secrets`. Currently using **llama** (Llama-4-Maverick-17B). To switch: set `BRAIN_LLM=` and add the matching key.
+`~/.brain-secrets` already has your Llama key. Other providers are wired but inactive. To switch: set `BRAIN_LLM=` to one of `llama|deepseek|moonshot|anthropic` and add the matching key.
 
-| Provider | Model | When |
-|---|---|---|
-| **llama** (default) | Llama-4-Maverick-17B | Free for now via your key |
-| deepseek | deepseek-chat | If you ever want a cheaper alt |
-| moonshot | kimi-k2 | If you want longer context |
-| anthropic | claude-opus-4-7 | If you want Opus-level reasoning |
+## Security
 
-## Maintenance ritual (5 min/week)
-
-Every Monday morning, edit `CLAUDE.md`:
-- Update **Current Projects** status, **Stuck on**, **Next milestone**.
-- Update **What I Am Reading and Thinking About**.
-
-This is the single thing that keeps the briefs sharp. Stale CLAUDE.md → generic briefs.
-
-## Security note
-
-Two secrets in `~/.brain-secrets` (chmod 600, owner-read):
-- `LLAMA_API_KEY` — was pasted in chat earlier, rotate at your discretion via Llama dashboard.
-- `BRAIN_WEBHOOK_TOKEN` — auto-generated locally, never left this machine.
-
-The webhook listens on 0.0.0.0:7891 (LAN-reachable). Without the token, requests get 401. If you don't trust your LAN, switch to Tailscale and change the bind address to `127.0.0.1` in `webhook-server.cjs` line 25.
+Two secrets in `~/.brain-secrets` (chmod 600):
+- `LLAMA_API_KEY` — was pasted in chat earlier; rotate at your discretion
+- `BRAIN_WEBHOOK_TOKEN` — auto-generated locally
