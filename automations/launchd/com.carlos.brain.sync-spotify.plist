@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.carlos.brain.sync-spotify</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/sync-spotify.sh</string>
+  </array>
+
+  <!-- Daily at 23:00 — captures everything from the day -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>23</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/carlos/Brain/OBSIDIAN</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-spotify.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-spotify.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
