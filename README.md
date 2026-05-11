@@ -1,5 +1,9 @@
 # Brain — A Second Brain That Talks Back
 
+> **Lineage.** This repo is a fork of [NicholasSpisak/second-brain](https://github.com/NicholasSpisak/second-brain), which is itself an implementation of [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (April 2026 gist). Karpathy's idea: instead of asking the LLM to rediscover knowledge from raw files every session, you let it maintain a structured wiki that compounds over time. Karpathy's own wiki reached ~100 articles / 400K words and outperformed RAG for his Q&A.
+>
+> This fork diverges substantially. It adds: a full automated capture layer (Apple Notes, Pages, browser history, webhook bookmarklet, Readwise plugin config), launchd-scheduled daily-brief + weekly-synthesis pipelines, Llama-API-driven analysis tools (`brain-analyze`, `brain-corpus-synth`, `brain-triage`, `brain-wake`), and an explicit anti-sycophancy prompt-engineering pattern. The original raw/+wiki/ structure is replaced by inbox/+notes/+ideas/+projects/+archive/ — a five-folder scheme closer to PARA than to the wiki pattern. Credit to Karpathy for the compounding-knowledge idea and to NicholasSpisak for the most-cited reference implementation; everything beyond that is in the commits.
+
 This is not a filing cabinet. It is a feedback loop.
 
 Every article, podcast clip, voice note, and quick capture flows in here automatically. Claude reads across everything daily and surfaces the connections you missed. The vault briefs you every morning before you open another app. The system compounds without you doing anything extra.
