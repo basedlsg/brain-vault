@@ -38,7 +38,7 @@ fi
 } >> "$LOG"
 
 TMP=$(mktemp)
-trap "rm -f $TMP /tmp/brave-history-copy.db" EXIT
+trap "rm -f $TMP /tmp/brave-history-copy.db /tmp/safari-history-copy.db /tmp/safari-history-copy.db-shm /tmp/safari-history-copy.db-wal" EXIT
 
 # -------- BRAVE --------
 BRAVE_COUNT=0
@@ -73,6 +73,10 @@ echo "Brave: $BRAVE_COUNT URLs since $SINCE" >> "$LOG"
 # -------- SAFARI --------
 SAFARI_COUNT=0
 if [[ -r "$SAFARI_DB" ]]; then
+  # Safari uses WAL mode — copy db + shm + wal together or sqlite can't open
+  rm -f /tmp/safari-history-copy.db /tmp/safari-history-copy.db-shm /tmp/safari-history-copy.db-wal
+  cp "$SAFARI_DB-shm" /tmp/safari-history-copy.db-shm 2>/dev/null || true
+  cp "$SAFARI_DB-wal" /tmp/safari-history-copy.db-wal 2>/dev/null || true
   if cp "$SAFARI_DB" /tmp/safari-history-copy.db 2>/dev/null; then
     # Safari time: seconds since 2001-01-01 (CFAbsoluteTime); add 978307200 to get unix
     sqlite3 -separator $'\t' -readonly /tmp/safari-history-copy.db "
