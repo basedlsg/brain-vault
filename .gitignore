@@ -28,3 +28,8 @@ archive/journals/*.txt
 
 # But keep these
 !.gitkeep
+
+# Generated bookmarklet contains the webhook token
+automations/bookmarklet.html
+# Browser history snapshots — local, can be regenerated
+archive/browser-history/

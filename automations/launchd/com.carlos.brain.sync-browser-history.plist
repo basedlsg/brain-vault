@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.carlos.brain.sync-browser-history</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/sync-browser-history.sh</string>
+  </array>
+
+  <!-- Every 4 hours -->
+  <key>StartInterval</key>
+  <integer>14400</integer>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/carlos/Brain/OBSIDIAN</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-browser-history.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-browser-history.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

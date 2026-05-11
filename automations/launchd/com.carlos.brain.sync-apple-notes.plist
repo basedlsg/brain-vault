@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.carlos.brain.sync-apple-notes</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/sync-apple-notes.sh</string>
+  </array>
+
+  <!-- Every hour -->
+  <key>StartInterval</key>
+  <integer>3600</integer>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/carlos/Brain/OBSIDIAN</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-apple-notes.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/carlos/Brain/OBSIDIAN/automations/scripts/logs/launchd-sync-apple-notes.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Don't pile up runs if Notes.app is slow -->
+  <key>AbandonProcessGroup</key>
+  <false/>
+</dict>
+</plist>
