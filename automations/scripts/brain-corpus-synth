@@ -1,0 +1,151 @@
+#!/bin/zsh
+# brain-corpus-synth — cross-journal meta-synthesis.
+#
+# Reads ALL the indexed journal summaries in archive/journals/_indexed/
+# and asks Llama to find patterns that don't show up in any single journal:
+#   - Themes recurring across multiple journals (long-running obsessions)
+#   - People appearing in multiple journals (significant figures vs. one-off mentions)
+#   - Project/idea names mentioned and then forgotten ("ghost projects")
+#   - The arc — how Carlos's stated subjects evolve from 2019 → 2026
+#
+# Output: weekly-syntheses/corpus-synthesis-YYYY-MM-DD.md
+#
+# Costs nothing extra (uses the existing Llama key). Idempotent — overwrites
+# previous corpus-synthesis from the same day. Re-run after editing the
+# journal indexes.
+
+set -euo pipefail
+setopt NULL_GLOB 2>/dev/null || true
+
+VAULT="/Users/carlos/Brain/OBSIDIAN"
+INDEXED_DIR="$VAULT/archive/journals/_indexed"
+OUT_DIR="$VAULT/weekly-syntheses"
+LOG="$VAULT/automations/scripts/logs/corpus-synth.log"
+mkdir -p "$OUT_DIR" "$VAULT/automations/scripts/logs"
+
+[[ -f "$HOME/.brain-secrets" ]] && { set -a; source "$HOME/.brain-secrets"; set +a; }
+[[ -z "${LLAMA_API_KEY:-}" ]] && { echo "ERROR: LLAMA_API_KEY not set" >&2; exit 1; }
+
+DATE=$(date +%Y-%m-%d)
+OUT="$OUT_DIR/corpus-synthesis-$DATE.md"
+
+INDEXES=$(find "$INDEXED_DIR" -type f -name '*-index.md' 2>/dev/null | sort)
+if [[ -z "$INDEXES" ]]; then
+  echo "ERROR: no indexed journals found. Run index-journals.sh first." >&2
+  exit 1
+fi
+
+NUM_INDEXES=$(echo "$INDEXES" | wc -l | xargs)
+echo "=== Corpus synthesis — $(date) ===" > "$LOG"
+echo "Reading $NUM_INDEXES journal indexes..." | tee -a "$LOG"
+
+# Concatenate all indexes with separators
+CORPUS=$(
+  while IFS= read -r idx; do
+    [[ -z "$idx" ]] && continue
+    echo "================================================================"
+    echo "JOURNAL: $(basename "$idx" -index.md)"
+    echo "================================================================"
+    cat "$idx"
+    echo
+  done <<< "$INDEXES"
+)
+
+CORPUS_CHARS=$(echo "$CORPUS" | wc -c | xargs)
+echo "Corpus: $CORPUS_CHARS chars" | tee -a "$LOG"
+
+# Also read CLAUDE.md to anchor what Carlos NOW says about himself
+CURRENT=$(cat "$VAULT/CLAUDE.md" 2>/dev/null)
+
+USER_PROMPT="You are doing a meta-synthesis across all of Carlos's journal indexes. Each journal was indexed separately by Llama; you are reading the combined list of indexes (themes/people/places/projects/distinctive_passages) plus Carlos's current CLAUDE.md (which describes who he says he is now).
+
+Output ONLY valid markdown with this exact structure (no preamble, no code fences):
+
+# Cross-journal synthesis — $DATE
+
+## Recurring themes (appear in 3+ journals)
+For each theme that appears in at least 3 of the journal indexes, name it as a noun phrase, list the journal files where it appears, and quote ONE supporting passage that captures it best. The point: these are obsessions, not one-off thoughts.
+Format:
+- **<theme>** — appears in: \`journal-a.txt\`, \`journal-b.txt\`, \`journal-c.txt\`
+  > 'quote' — from \`journal-x.txt\`
+
+## Recurring people (appear in 3+ journals)
+Group people by who recurs across multiple journals. Skip ones that only appear once (those are one-off mentions). Categorize:
+  - **Spiritual / archetypal figures** (ADISA, deities, occult names): list with frequency
+  - **Real people in Carlos's life** (friends, family, business): list with frequency
+  - **Public figures / authors / musicians referenced**: list with frequency
+
+## Ghost projects (named ideas mentioned in journals, NOT in current CLAUDE.md)
+This is the most important section. Carlos has named dozens of projects/ideas in his journals over the years, then moved on. List them, organized into 4 buckets:
+  - **Still alive (mentioned recently AND in CLAUDE.md)**:
+  - **Dormant but recurring (mentioned in multiple journals, not in CLAUDE.md)**:
+  - **One-shot ideas (mentioned once, then never again)**:
+  - **Currently mysterious (name appears but unclear what the project was)**:
+
+For each, give the journal it appeared in. Be exhaustive — pull every named project from every index. This list is the highest-value output of this synthesis because it surfaces what Carlos has forgotten.
+
+## The arc — how Carlos's subjects shift across journals
+ONE paragraph (4-6 sentences). Looking at the journal indexes in roughly chronological order (filenames give some hint: First_Journal_19 is oldest), what changes? What does he stop writing about? What does he start writing about? What stays constant? Be specific — name themes and journals.
+
+## What the journals know that CLAUDE.md doesn't say
+ONE paragraph. CLAUDE.md is Carlos's current self-framing. The journals are his unfiltered prose across years. What's in the journals (themes, named people, named projects) that does NOT appear anywhere in CLAUDE.md? This is the gap between who he says he is and what his vault shows. Be honest. If there isn't a real gap, say so.
+
+Hard rules:
+- Be exhaustive on ghost projects. Don't summarize 50 projects into 'and various others' — list them.
+- For themes/people, REQUIRE the 3+ journal threshold. Don't list one-offs in those sections.
+- Use only vault-relative paths (\`archive/journals/X.txt\`).
+- Quote verbatim. Never paraphrase a quote.
+- If a section has nothing real to say, write 'No real signal here.' rather than padding.
+
+CORPUS BELOW (concatenated journal indexes):
+
+$CORPUS
+
+CARLOS'S CURRENT CLAUDE.md FOR REFERENCE:
+
+$CURRENT"
+
+SYSTEM_PROMPT="You are doing a meta-synthesis across multiple journal indexes. Anti-sycophancy rules apply: refuse-when-no-signal, quote verbatim, never paraphrase, be exhaustive on the ghost-projects list specifically."
+
+PAYLOAD=$(jq -n --arg sys "$SYSTEM_PROMPT" --arg user "$USER_PROMPT" \
+  '{model:"Llama-4-Maverick-17B-128E-Instruct-FP8",
+    max_completion_tokens: 8000,
+    messages:[{role:"system",content:$sys},{role:"user",content:$user}]}')
+
+RESPFILE="$VAULT/automations/scripts/logs/corpus-synth-resp.json"
+echo "Calling Llama (this can take 30-60s for 8K tokens of output)..." | tee -a "$LOG"
+curl -sS https://api.llama.com/v1/chat/completions \
+  -H "Authorization: Bearer $LLAMA_API_KEY" \
+  -H "content-type: application/json" \
+  -d "$PAYLOAD" -o "$RESPFILE"
+
+if jq -e '.error' "$RESPFILE" >/dev/null 2>&1; then
+  echo "ERROR from Llama:" | tee -a "$LOG"
+  jq '.error' "$RESPFILE" | tee -a "$LOG"
+  exit 1
+fi
+
+CONTENT=$(jq -r '.completion_message.content.text // empty' "$RESPFILE")
+if [[ -z "$CONTENT" ]]; then
+  echo "ERROR: empty response" | tee -a "$LOG"
+  cat "$RESPFILE" | tee -a "$LOG"
+  exit 1
+fi
+
+cat > "$OUT" <<EOF
+---
+type: corpus-synthesis
+generated_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+generator: brain-corpus-synth
+provider: llama
+model: Llama-4-Maverick-17B-128E-Instruct-FP8
+input_indexes: $NUM_INDEXES
+input_chars: $CORPUS_CHARS
+---
+
+$CONTENT
+EOF
+
+echo "" | tee -a "$LOG"
+echo "✓ Wrote $OUT" | tee -a "$LOG"
+wc -l "$OUT" | tee -a "$LOG"
